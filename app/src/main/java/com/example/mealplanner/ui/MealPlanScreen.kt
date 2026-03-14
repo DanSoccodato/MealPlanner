@@ -1,5 +1,6 @@
 package com.example.mealplanner.ui
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -23,7 +24,7 @@ fun MealPlanScreen(
     navController: NavController,
     mealPlanRepository: MealPlanRepository,
     mealRepository: MealRepository,
-    groceryRepository: GroceryRepository // Added groceryRepository
+    groceryRepository: GroceryRepository
 ) {
     val mealPlans by mealPlanRepository.mealPlans.collectAsState()
     val meals by mealRepository.meals.collectAsState()
@@ -64,7 +65,8 @@ fun MealPlanScreen(
                     MealPlanItem(
                         mealPlan = mealPlan, 
                         meals = meals,
-                        onDelete = { mealPlanRepository.deleteMealPlan(mealPlan.day) }
+                        onDelete = { mealPlanRepository.deleteMealPlan(mealPlan.day) },
+                        onClick = { navController.navigate("editMealPlan/${mealPlan.day}") }
                     )
                 }
             }
@@ -73,8 +75,18 @@ fun MealPlanScreen(
 }
 
 @Composable
-fun MealPlanItem(mealPlan: MealPlan, meals: List<com.example.mealplanner.data.Meal>, onDelete: () -> Unit) {
-    Card(modifier = Modifier.padding(8.dp).fillMaxWidth()) {
+fun MealPlanItem(
+    mealPlan: MealPlan, 
+    meals: List<com.example.mealplanner.data.Meal>, 
+    onDelete: () -> Unit,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .padding(8.dp)
+            .fillMaxWidth()
+            .clickable { onClick() }
+    ) {
         Row(
             modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically

@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -21,18 +22,41 @@ import com.example.mealplanner.data.MealRepository
 fun AddMealPlanScreen(
     navController: NavController,
     mealPlanRepository: MealPlanRepository,
-    mealRepository: MealRepository
+    mealRepository: MealRepository,
+    initialDay: String? = null
 ) {
-    val days = listOf("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
-    var selectedDay by remember { mutableStateOf(days[0]) }
+    val days = listOf("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday", "Custom")
+    
+    // Collect the plans as state to ensure we can find the existing one
+    val mealPlans by mealPlanRepository.mealPlans.collectAsState()
+    val existingPlan = remember(initialDay, mealPlans) {
+        initialDay?.let { day -> mealPlans.find { it.day == day } }
+    }
+
+    var selectedDay by remember { mutableStateOf(initialDay ?: days[0]) }
     var expandedDay by remember { mutableStateOf(false) }
     
-    val allMeals = mealRepository.getAllMeals()
+    val allMeals by mealRepository.meals.collectAsState()
     val selectedMealIds = remember { mutableStateListOf<Int>() }
+
+    // Update selectedMealIds when existingPlan is loaded
+    LaunchedEffect(existingPlan) {
+        if (existingPlan != null) {
+            selectedMealIds.clear()
+            selectedMealIds.addAll(existingPlan.mealIds)
+        }
+    }
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("Create Meal Plan") })
+            TopAppBar(
+                title = { Text(if (initialDay == null) "Create Meal Plan" else "Edit Meal Plan") },
+                navigationIcon = {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                }
+            )
         }
     ) { padding ->
         Column(modifier = Modifier.padding(padding).padding(16.dp)) {
@@ -42,9 +66,14 @@ fun AddMealPlanScreen(
                     value = selectedDay,
                     onValueChange = { },
                     readOnly = true,
+                    enabled = initialDay == null, // Can't change day if editing
                     modifier = Modifier.fillMaxWidth(),
                     trailingIcon = {
-                        Icon(Icons.Default.ArrowDropDown, "Select Day", Modifier.clickable { expandedDay = true })
+                        if (initialDay == null) {
+                            IconButton(onClick = { expandedDay = true }) {
+                                Icon(Icons.Default.ArrowDropDown, "Select Day")
+                            }
+                        }
                     }
                 )
                 DropdownMenu(expanded = expandedDay, onDismissRequest = { expandedDay = false }) {

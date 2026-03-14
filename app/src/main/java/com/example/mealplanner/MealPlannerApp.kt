@@ -100,6 +100,13 @@ fun MealPlannerApp() {
             composable("addMealPlan") {
                 AddMealPlanScreen(navController, mealPlanRepository, mealRepository)
             }
+            composable(
+                route = "editMealPlan/{day}",
+                arguments = listOf(navArgument("day") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val day = backStackEntry.arguments?.getString("day")
+                AddMealPlanScreen(navController, mealPlanRepository, mealRepository, day)
+            }
             composable(Screen.GroceryList.route) { 
                 GroceryListScreen(navController, mealPlanRepository, mealRepository, groceryRepository)
             }
