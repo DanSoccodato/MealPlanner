@@ -1,0 +1,220 @@
+package com.example.mealplanner.ui
+
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DragHandle
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.navigation.NavController
+import com.example.mealplanner.data.GroceryRepository
+import com.example.mealplanner.data.MealPlanRepository
+import com.example.mealplanner.data.MealRepository
+import org.burnoutcrew.reorderable.*
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun GroceryListScreen(
+    navController: NavController,
+    mealPlanRepository: MealPlanRepository,
+    mealRepository: MealRepository,
+    groceryRepository: GroceryRepository
+) {
+    val mealPlans by mealPlanRepository.mealPlans.collectAsState()
+    val meals by mealRepository.meals.collectAsState()
+    val groceryItemsState by groceryRepository.items.collectAsState()
+
+    // 1. Sync meal ingredients with database to ensure they have positions
+    LaunchedEffect(mealPlans, meals) {
+        val ingredients = mutableListOf<String>()
+        mealPlans.forEach { mealPlan ->
+            mealPlan.mealIds.forEach { mealId ->
+                val meal = meals.find { it.id == mealId }
+                meal?.let { ingredients.addAll(it.ingredients) }
+            }
+        }
+        groceryRepository.syncMealIngredients(ingredients.distinct())
+    }
+
+    // 2. Derive the list from database state
+    val dbOrderedItems by remember {
+        derivedStateOf {
+            val ingredientsInPlans = mutableListOf<String>()
+            mealPlans.forEach { mealPlan ->
+                mealPlan.mealIds.forEach { mealId ->
+                    val meal = meals.find { it.id == mealId }
+                    meal?.let { ingredientsInPlans.addAll(it.ingredients) }
+                }
+            }
+            
+            groceryItemsState
+                .filter { it.name in ingredientsInPlans || it.isExtra }
+                .filter { !it.isRemoved }
+                .sortedBy { it.position }
+                .map { it.name }
+        }
+    }
+
+    // 3. Maintain a local mutable state for smooth dragging
+    val localOrderedItems = remember { mutableStateListOf<String>() }
+    
+    // Sync local state when database items change (initial load or new items)
+    LaunchedEffect(dbOrderedItems) {
+        // Only update if the content actually changed (avoiding loop during drag)
+        if (localOrderedItems.toList() != dbOrderedItems) {
+            localOrderedItems.clear()
+            localOrderedItems.addAll(dbOrderedItems)
+        }
+    }
+
+    // State for reorderable list
+    val state = rememberReorderableLazyListState(onMove = { from, to ->
+        localOrderedItems.add(to.index, localOrderedItems.removeAt(from.index))
+    }, canDragOver = { _, _ -> true })
+
+    // When drag ends, sync the final order to the database
+    // We detect drag end by checking state.isDragging (if available) or simply 
+    // updating DB after every move, but the local list handles the UI instantly.
+    LaunchedEffect(localOrderedItems.toList()) {
+        groceryRepository.updateItemPositions(localOrderedItems.toList())
+    }
+
+    var newIngredient by remember { mutableStateOf("") }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Grocery List", style = MaterialTheme.typography.titleLarge) },
+                actions = {
+                    TextButton(onClick = { groceryRepository.reset() }) {
+                        Text("Reset", fontSize = 14.sp)
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        Column(modifier = Modifier.padding(padding)) {
+            Row(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedTextField(
+                    value = newIngredient,
+                    onValueChange = { newIngredient = it },
+                    label = { Text("Add extra item", fontSize = 12.sp) },
+                    modifier = Modifier.weight(1f),
+                    textStyle = LocalTextStyle.current.copy(fontSize = 14.sp)
+                )
+                IconButton(onClick = {
+                    groceryRepository.addExtraIngredient(newIngredient)
+                    newIngredient = ""
+                }) {
+                    Icon(Icons.Default.Add, contentDescription = "Add")
+                }
+            }
+
+            if (localOrderedItems.isEmpty()) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("No grocery items yet.", fontSize = 14.sp)
+                }
+            } else {
+                LazyColumn(
+                    state = state.listState,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .reorderable(state)
+                ) {
+                    items(localOrderedItems, key = { it }) { item ->
+                        ReorderableItem(state, key = item) { isDragging ->
+                            val elevation = animateDpAsState(if (isDragging) 8.dp else 0.dp)
+                            
+                            val itemData = groceryItemsState.find { it.name == item }
+                            val isBought = itemData?.isBought == true
+                            
+                            GroceryItem(
+                                item = item,
+                                isBought = isBought,
+                                elevation = elevation.value,
+                                onToggleBought = { groceryRepository.toggleBought(item) },
+                                onDelete = { groceryRepository.removeIngredient(item) },
+                                modifier = Modifier.detectReorderAfterLongPress(state)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun GroceryItem(
+    item: String, 
+    isBought: Boolean,
+    elevation: Dp,
+    onToggleBought: () -> Unit,
+    onDelete: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier
+            .padding(horizontal = 12.dp, vertical = 2.dp)
+            .fillMaxWidth()
+            .shadow(elevation),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isBought) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f) else MaterialTheme.colorScheme.surface
+        )
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                Icons.Default.DragHandle,
+                contentDescription = "Reorder",
+                modifier = Modifier.size(18.dp),
+                tint = MaterialTheme.colorScheme.outline
+            )
+            
+            Checkbox(
+                checked = isBought,
+                onCheckedChange = { onToggleBought() },
+                modifier = Modifier.scale(0.8f)
+            )
+            
+            Text(
+                text = item,
+                modifier = Modifier.weight(1f).padding(start = 4.dp),
+                fontSize = 14.sp,
+                style = LocalTextStyle.current.copy(
+                    textDecoration = if (isBought) TextDecoration.LineThrough else TextDecoration.None,
+                    color = if (isBought) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.onSurface
+                )
+            )
+            
+            IconButton(
+                onClick = onDelete,
+                modifier = Modifier.size(32.dp)
+            ) {
+                Icon(
+                    Icons.Default.Delete, 
+                    contentDescription = "Delete", 
+                    tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        }
+    }
+}
