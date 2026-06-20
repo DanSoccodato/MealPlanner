@@ -5,7 +5,11 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -28,6 +32,21 @@ fun MealPlanScreen(
 ) {
     val mealPlans by mealPlanRepository.mealPlans.collectAsState()
     val meals by mealRepository.meals.collectAsState()
+    var searchQuery by remember { mutableStateOf("") }
+
+    val filteredMealPlans = remember(mealPlans, searchQuery, meals) {
+        if (searchQuery.isEmpty()) {
+            mealPlans
+        } else {
+            mealPlans.filter { plan ->
+                plan.day.contains(searchQuery, ignoreCase = true) ||
+                plan.mealIds.any { id ->
+                    val meal = meals.find { m -> m.id == id }
+                    meal?.name?.contains(searchQuery, ignoreCase = true) == true
+                }
+            }
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -55,19 +74,39 @@ fun MealPlanScreen(
             }
         }
     ) { padding ->
-        if (mealPlans.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                Text("No meal plans yet. Create one!")
-            }
-        } else {
-            LazyColumn(modifier = Modifier.padding(padding)) {
-                items(mealPlans) { mealPlan ->
-                    MealPlanItem(
-                        mealPlan = mealPlan, 
-                        meals = meals,
-                        onDelete = { mealPlanRepository.deleteMealPlan(mealPlan.day) },
-                        onClick = { navController.navigate("editMealPlan/${mealPlan.day}") }
-                    )
+        Column(modifier = Modifier.padding(padding)) {
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { query -> searchQuery = query },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(8.dp),
+                placeholder = { Text("Search plans by day or meal...") },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                trailingIcon = {
+                    if (searchQuery.isNotEmpty()) {
+                        IconButton(onClick = { searchQuery = "" }) {
+                            Icon(Icons.Default.Clear, contentDescription = "Clear")
+                        }
+                    }
+                },
+                singleLine = true
+            )
+
+            if (filteredMealPlans.isEmpty()) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(if (searchQuery.isEmpty()) "No meal plans yet. Create one!" else "No matching plans found.")
+                }
+            } else {
+                LazyColumn {
+                    items(filteredMealPlans) { mealPlan ->
+                        MealPlanItem(
+                            mealPlan = mealPlan, 
+                            meals = meals,
+                            onDelete = { mealPlanRepository.deleteMealPlan(mealPlan.day) },
+                            onClick = { navController.navigate("editMealPlan/${mealPlan.day}") }
+                        )
+                    }
                 }
             }
         }
@@ -81,18 +120,33 @@ fun MealPlanItem(
     onDelete: () -> Unit,
     onClick: () -> Unit
 ) {
+    var expanded by remember { mutableStateOf(false) }
+
     Card(
         modifier = Modifier
             .padding(8.dp)
             .fillMaxWidth()
             .clickable { onClick() }
     ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(text = mealPlan.day, style = MaterialTheme.typography.headlineSmall)
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(text = mealPlan.day, style = MaterialTheme.typography.headlineSmall)
+                }
+                IconButton(onClick = { expanded = !expanded }) {
+                    Icon(
+                        if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                        contentDescription = if (expanded) "Show less" else "Show more"
+                    )
+                }
+                IconButton(onClick = onDelete) {
+                    Icon(Icons.Default.Delete, contentDescription = "Delete Plan")
+                }
+            }
+            
+            if (expanded) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(text = "Meals:", style = MaterialTheme.typography.titleSmall)
                 mealPlan.mealIds.forEach { mealId ->
@@ -101,9 +155,6 @@ fun MealPlanItem(
                         Text(text = "• ${it.name}")
                     }
                 }
-            }
-            IconButton(onClick = onDelete) {
-                Icon(Icons.Default.Delete, contentDescription = "Delete Plan")
             }
         }
     }

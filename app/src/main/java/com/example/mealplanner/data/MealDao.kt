@@ -5,7 +5,7 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface MealDao {
-    @Query("SELECT * FROM meals")
+    @Query("SELECT * FROM meals ORDER BY name ASC")
     fun getAllMeals(): Flow<List<Meal>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)

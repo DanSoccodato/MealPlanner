@@ -7,6 +7,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -38,6 +40,15 @@ fun AddMealPlanScreen(
     
     val allMeals by mealRepository.meals.collectAsState()
     val selectedMealIds = remember { mutableStateListOf<Int>() }
+
+    var searchQuery by remember { mutableStateOf("") }
+    val filteredMeals = remember(allMeals, searchQuery) {
+        if (searchQuery.isEmpty()) {
+            allMeals
+        } else {
+            allMeals.filter { it.name.contains(searchQuery, ignoreCase = true) }
+        }
+    }
 
     // Update selectedMealIds when existingPlan is loaded
     LaunchedEffect(existingPlan) {
@@ -90,14 +101,33 @@ fun AddMealPlanScreen(
             }
 
             Spacer(modifier = Modifier.height(16.dp))
+            
             Text(text = "Select Meals:", style = MaterialTheme.typography.titleMedium)
+            
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                placeholder = { Text("Search meals...") },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                trailingIcon = {
+                    if (searchQuery.isNotEmpty()) {
+                        IconButton(onClick = { searchQuery = "" }) {
+                            Icon(Icons.Default.Clear, contentDescription = "Clear search")
+                        }
+                    }
+                },
+                singleLine = true
+            )
             
             if (allMeals.isEmpty()) {
                 Text("No meals available. Create some first!")
+            } else if (filteredMeals.isEmpty()) {
+                Text("No meals match your search.")
             }
 
             LazyColumn(modifier = Modifier.weight(1f)) {
-                items(allMeals) { meal ->
+                items(filteredMeals) { meal ->
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
