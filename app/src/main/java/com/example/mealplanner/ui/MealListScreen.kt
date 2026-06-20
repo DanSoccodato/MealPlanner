@@ -20,6 +20,11 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.mealplanner.data.Meal
 import com.example.mealplanner.data.MealRepository
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.input.VisualTransformation
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -46,23 +51,64 @@ fun MealListScreen(navController: NavController, mealRepository: MealRepository)
         }
     ) { padding ->
         Column(modifier = Modifier.padding(padding)) {
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(8.dp),
-                placeholder = { Text("Search meals...") },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                trailingIcon = {
-                    if (searchQuery.isNotEmpty()) {
-                        IconButton(onClick = { searchQuery = "" }) {
-                            Icon(Icons.Default.Clear, contentDescription = "Clear search")
+            val interactionSource = remember { MutableInteractionSource() }
+
+            CompositionLocalProvider(LocalMinimumInteractiveComponentEnforcement provides false) {
+                BasicTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp, horizontal = 8.dp)
+                        .height(36.dp), // Set desired height here (e.g., 36.dp)
+                    interactionSource = interactionSource,
+                    singleLine = true,
+                    textStyle = TextStyle(
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurface
+                    ),
+                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary)
+                ) { innerTextField ->
+                    TextFieldDefaults.OutlinedTextFieldDecorationBox(
+                        value = searchQuery,
+                        innerTextField = innerTextField,
+                        enabled = true,
+                        singleLine = true,
+                        visualTransformation = VisualTransformation.None,
+                        interactionSource = interactionSource,
+                        placeholder = { Text("Search meals...", fontSize = 14.sp) },
+                        leadingIcon = {
+                            Icon(Icons.Default.Search, null, modifier = Modifier.size(18.dp))
+                        },
+                        trailingIcon = {
+                            if (searchQuery.isNotEmpty()) {
+                                IconButton(
+                                    onClick = { searchQuery = "" },
+                                    modifier = Modifier.size(24.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.Clear,
+                                        "Clear search",
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
+                        },
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                        container = {
+                            OutlinedTextFieldDefaults.ContainerBox(
+                                enabled = true,
+                                isError = false,
+                                interactionSource = interactionSource,
+                                colors = OutlinedTextFieldDefaults.colors(),
+                                shape = OutlinedTextFieldDefaults.shape,
+                                focusedBorderThickness = 1.dp,
+                                unfocusedBorderThickness = 1.dp
+                            )
                         }
-                    }
-                },
-                singleLine = true
-            )
+                    )
+                }
+            }
 
             if (filteredMeals.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
