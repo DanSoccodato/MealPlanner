@@ -7,6 +7,7 @@ import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.automirrored.filled.ListAlt
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Restaurant
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -28,6 +29,7 @@ sealed class Screen(val route: String, val label: String, val icon: androidx.com
     object MealPlan : Screen("mealPlan", "Plan", Icons.AutoMirrored.Filled.List)
     object GroceryList : Screen("groceryList", "Groceries", Icons.Default.ShoppingCart)
     object IngredientList : Screen("ingredientList", "Ingredients", Icons.AutoMirrored.Filled.ListAlt)
+    object SectionOrder : Screen("sectionOrder", "Section ordering", Icons.Default.Settings)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -39,6 +41,7 @@ fun MealPlannerApp() {
     val mealPlanRepository = remember { MealPlanRepository(database.mealPlanDao()) }
     val groceryRepository = remember { GroceryRepository(database.groceryDao()) }
     val ingredientRepository = remember { IngredientRepository(database.ingredientDao()) }
+    val sectionOrderRepository = remember { SectionOrderRepository(database.sectionOrderDao()) }
 
     val navController = rememberNavController()
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
@@ -59,7 +62,8 @@ fun MealPlannerApp() {
         Screen.MealList,
         Screen.MealPlan,
         Screen.GroceryList,
-        Screen.IngredientList
+        Screen.IngredientList,
+        Screen.SectionOrder
     )
 
     val onOpenDrawer: () -> Unit = { 
@@ -167,10 +171,13 @@ fun MealPlannerApp() {
                     AddMealPlanScreen(navController, mealPlanRepository, mealRepository, day)
                 }
                 composable(Screen.GroceryList.route) {
-                    GroceryListScreen(navController, mealPlanRepository, mealRepository, groceryRepository, ingredientRepository, onOpenDrawer)
+                    GroceryListScreen(navController, mealPlanRepository, mealRepository, groceryRepository, ingredientRepository, sectionOrderRepository, onOpenDrawer)
                 }
                 composable(Screen.IngredientList.route) {
                     IngredientListScreen(ingredientRepository, onOpenDrawer)
+                }
+                composable(Screen.SectionOrder.route) {
+                    SectionOrderScreen(ingredientRepository, sectionOrderRepository, onOpenDrawer)
                 }
             }
         }

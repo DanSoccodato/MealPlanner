@@ -28,6 +28,7 @@ import com.example.mealplanner.data.GroceryRepository
 import com.example.mealplanner.data.IngredientRepository
 import com.example.mealplanner.data.MealPlanRepository
 import com.example.mealplanner.data.MealRepository
+import com.example.mealplanner.data.SectionOrderRepository
 import org.burnoutcrew.reorderable.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -38,12 +39,14 @@ fun GroceryListScreen(
     mealRepository: MealRepository,
     groceryRepository: GroceryRepository,
     ingredientRepository: IngredientRepository,
+    sectionOrderRepository: SectionOrderRepository,
     onOpenDrawer: () -> Unit
 ) {
     val mealPlans by mealPlanRepository.mealPlans.collectAsState()
     val meals by mealRepository.meals.collectAsState()
     val groceryItemsState by groceryRepository.items.collectAsState()
     val allIngredients by ingredientRepository.ingredients.collectAsState()
+    val sectionOrders by sectionOrderRepository.sectionOrders.collectAsState()
 
     // 1. Sync meal ingredients with database to ensure they have positions
     LaunchedEffect(mealPlans, meals) {
@@ -68,10 +71,15 @@ fun GroceryListScreen(
                 }
             }
             
+            val sectionMap = sectionOrders.associate { it.section to it.position }
+            
             groceryItemsState
                 .filter { it.name in ingredientsInPlans || it.isExtra }
                 .filter { !it.isRemoved }
-                .sortedBy { it.position }
+                .sortedWith(compareBy<com.example.mealplanner.data.GroceryItem> { 
+                    val ingredient = allIngredients.find { ing -> ing.name.equals(it.name, ignoreCase = true) }
+                    sectionMap[ingredient?.section] ?: Int.MAX_VALUE
+                }.thenBy { it.position })
                 .map { it.name }
         }
     }
