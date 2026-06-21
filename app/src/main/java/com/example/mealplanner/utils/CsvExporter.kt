@@ -2,144 +2,76 @@ package com.example.mealplanner.utils
 
 import android.content.Context
 import android.net.Uri
-import com.example.mealplanner.data.Ingredient
-import com.example.mealplanner.data.Meal
-import java.io.BufferedReader
-import java.io.InputStreamReader
-import java.io.OutputStreamWriter
-import java.lang.StringBuilder
+import java.io.*
+import java.util.zip.ZipEntry
+import java.util.zip.ZipInputStream
+import java.util.zip.ZipOutputStream
 
 object CsvExporter {
-    fun exportUnifiedData(context: Context, uri: Uri, meals: List<Meal>, ingredients: List<Ingredient>) {
+
+    fun exportBackup(context: Context, uri: Uri, mealRows: List<List<String>>, ingredientRows: List<List<String>>) {
         context.contentResolver.openOutputStream(uri)?.use { outputStream ->
-            OutputStreamWriter(outputStream).use { writer ->
-                // Header
-                writer.write("Meal,Ingredient,Aisle\n")
-                
-                // 1. Export Meals and their ingredients
-                meals.forEach { meal ->
-                    if (meal.ingredients.isEmpty()) {
-                        writer.write("${escapeCsv(meal.name)},,\n")
-                    } else {
-                        meal.ingredients.forEach { ingName ->
-                            val aisle = ingredients.find { it.name.equals(ingName, ignoreCase = true) }?.aisle ?: "General"
-                            writer.write("${escapeCsv(meal.name)},${escapeCsv(ingName)},${escapeCsv(aisle)}\n")
-                        }
-                    }
-                }
-                
-                // 2. Export standalone ingredients (those not in any meal)
-                val ingredientsInMeals = meals.flatMap { it.ingredients }.map { it.lowercase().trim() }.toSet()
-                ingredients.filter { it.name.lowercase().trim() !in ingredientsInMeals }.forEach { ingredient ->
-                    writer.write(",${escapeCsv(ingredient.name)},${escapeCsv(ingredient.aisle)}\n")
-                }
+            ZipOutputStream(outputStream).use { zipOut ->
+                // Meals CSV
+                zipOut.putNextEntry(ZipEntry("meals.csv"))
+                writeCsvToStream(zipOut, listOf("Meal", "Ingredient"), mealRows)
+                zipOut.closeEntry()
+
+                // Ingredients CSV
+                zipOut.putNextEntry(ZipEntry("ingredients.csv"))
+                writeCsvToStream(zipOut, listOf("Ingredient", "Aisle"), ingredientRows)
+                zipOut.closeEntry()
             }
         }
     }
 
-    fun importUnifiedData(context: Context, uri: Uri): Pair<List<Meal>, List<Ingredient>> {
-        val mealsMap = mutableMapOf<String, MutableList<String>>()
-        val ingredientsMap = mutableMapOf<String, String>() // Name -> Aisle
+    data class BackupData(val mealRows: List<List<String>>, val ingredientRows: List<List<String>>)
+
+    fun importBackup(context: Context, uri: Uri): BackupData {
+        val mealRows = mutableListOf<List<String>>()
+        val ingredientRows = mutableListOf<List<String>>()
 
         context.contentResolver.openInputStream(uri)?.use { inputStream ->
-            BufferedReader(InputStreamReader(inputStream)).use { reader ->
-                reader.readLine() // Skip header
-                var line: String? = reader.readLine()
-                while (line != null) {
-                    val parts = parseCsvLine(line)
-                    if (parts.size >= 3) {
-                        val mealName = parts[0].trim()
-                        val ingName = parts[1].trim()
-                        val aisle = parts[2].trim()
-
-                        if (mealName.isNotEmpty()) {
-                            val ingredientList = mealsMap.getOrPut(mealName) { mutableListOf() }
-                            if (ingName.isNotEmpty()) {
-                                ingredientList.add(ingName)
-                            }
-                        }
-                        
-                        if (ingName.isNotEmpty()) {
-                            // Map ingredient name to aisle, prefer non-empty aisle if multiple entries exist
-                            val existingAisle = ingredientsMap[ingName]
-                            if (existingAisle == null || (existingAisle == "General" && aisle.isNotEmpty())) {
-                                ingredientsMap[ingName] = if (aisle.isNotEmpty()) aisle else "General"
-                            }
-                        }
+            ZipInputStream(inputStream).use { zipIn ->
+                var entry: ZipEntry? = zipIn.nextEntry
+                while (entry != null) {
+                    when (entry.name) {
+                        "meals.csv" -> mealRows.addAll(readCsvFromStream(zipIn))
+                        "ingredients.csv" -> ingredientRows.addAll(readCsvFromStream(zipIn))
                     }
-                    line = reader.readLine()
+                    zipIn.closeEntry()
+                    entry = zipIn.nextEntry
                 }
             }
         }
-
-        val meals = mealsMap.map { (name, ingredients) ->
-            Meal(name = name, ingredients = ingredients)
-        }
-        val ingredients = ingredientsMap.map { (name, aisle) ->
-            Ingredient(name = name, aisle = aisle)
-        }
-
-        return Pair(meals, ingredients)
+        return BackupData(mealRows, ingredientRows)
     }
 
-    fun exportMealsToCsv(context: Context, uri: Uri, meals: List<Meal>) {
-        context.contentResolver.openOutputStream(uri)?.use { outputStream ->
-            OutputStreamWriter(outputStream).use { writer ->
-                writer.write("ID,Name,Ingredients\n")
-                meals.forEach { meal ->
-                    writer.write("${meal.id},${escapeCsv(meal.name)},${escapeCsv(meal.ingredients.joinToString(", "))}\n")
-                }
-            }
+    private fun writeCsvToStream(os: OutputStream, header: List<String>, rows: List<List<String>>) {
+        val writer = BufferedWriter(OutputStreamWriter(os, "UTF-8"))
+        writer.write(header.joinToString(",") { escapeCsv(it) } + "\n")
+        rows.forEach { row ->
+            writer.write(row.joinToString(",") { escapeCsv(it) } + "\n")
         }
+        writer.flush()
+        // Do not close the writer here, as it would close the underlying ZipOutputStream
     }
 
-    fun importMealsFromCsv(context: Context, uri: Uri): List<Meal> {
-        val importedMeals = mutableListOf<Meal>()
-        context.contentResolver.openInputStream(uri)?.use { inputStream ->
-            BufferedReader(InputStreamReader(inputStream)).use { reader ->
-                reader.readLine()
-                var line: String? = reader.readLine()
-                while (line != null) {
-                    val parts = parseCsvLine(line)
-                    if (parts.size >= 3) {
-                        val name = parts[1]
-                        val ingredients = parts[2].split(",").map { it.trim() }.filter { it.isNotEmpty() }
-                        importedMeals.add(Meal(name = name, ingredients = ingredients))
-                    }
-                    line = reader.readLine()
+    private fun readCsvFromStream(is_: InputStream): List<List<String>> {
+        val result = mutableListOf<List<String>>()
+        val reader = BufferedReader(InputStreamReader(is_, "UTF-8"))
+        // Skip header
+        val header = reader.readLine()
+        if (header != null) {
+            var line = reader.readLine()
+            while (line != null) {
+                if (line.isNotEmpty()) {
+                    result.add(parseCsvLine(line))
                 }
+                line = reader.readLine()
             }
         }
-        return importedMeals
-    }
-
-    fun exportIngredientsToCsv(context: Context, uri: Uri, ingredients: List<Ingredient>) {
-        context.contentResolver.openOutputStream(uri)?.use { outputStream ->
-            OutputStreamWriter(outputStream).use { writer ->
-                writer.write("ID,Name,Aisle\n")
-                ingredients.forEach { ingredient ->
-                    writer.write("${ingredient.id},${escapeCsv(ingredient.name)},${escapeCsv(ingredient.aisle)}\n")
-                }
-            }
-        }
-    }
-
-    fun importIngredientsFromCsv(context: Context, uri: Uri): List<Ingredient> {
-        val importedIngredients = mutableListOf<Ingredient>()
-        context.contentResolver.openInputStream(uri)?.use { inputStream ->
-            BufferedReader(InputStreamReader(inputStream)).use { reader ->
-                reader.readLine()
-                var line: String? = reader.readLine()
-                while (line != null) {
-                    val parts = parseCsvLine(line)
-                    if (parts.size >= 3) {
-                        importedIngredients.add(Ingredient(name = parts[1], aisle = parts[2]))
-                    }
-                    line = reader.readLine()
-                }
-            }
-        }
-        return importedIngredients
+        return result
     }
 
     private fun escapeCsv(value: String): String {

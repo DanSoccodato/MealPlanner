@@ -30,6 +30,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.mealplanner.data.Ingredient
 import com.example.mealplanner.data.IngredientRepository
 import com.example.mealplanner.data.Meal
 import com.example.mealplanner.data.MealRepository
@@ -49,10 +50,18 @@ fun MealListScreen(
     var showMenu by remember { mutableStateOf(false) }
 
     val exportDataLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.CreateDocument("text/csv"),
+        contract = ActivityResultContracts.CreateDocument("application/zip"),
         onResult = { uri: Uri? ->
             uri?.let {
-                CsvExporter.exportUnifiedData(context, it, meals, ingredients)
+                val mealRows = meals.flatMap { meal ->
+                    if (meal.ingredients.isEmpty()) {
+                        listOf(listOf(meal.name, ""))
+                    } else {
+                        meal.ingredients.map { listOf(meal.name, it) }
+                    }
+                }
+                val ingredientRows = ingredients.map { listOf(it.name, it.aisle) }
+                CsvExporter.exportBackup(context, it, mealRows, ingredientRows)
             }
         }
     )
@@ -61,25 +70,43 @@ fun MealListScreen(
         contract = ActivityResultContracts.GetContent(),
         onResult = { uri: Uri? ->
             uri?.let {
-                val (importedMeals, importedIngredients) = CsvExporter.importUnifiedData(context, it)
+                val backupData = CsvExporter.importBackup(context, it)
                 
-                // 1. Import Ingredients first
-                importedIngredients.forEach { importedIng ->
-                    val exists = ingredients.any { it.name.equals(importedIng.name.trim(), ignoreCase = true) }
-                    if (!exists) {
-                        ingredientRepository.addIngredient(importedIng)
+                // 1. Import Ingredients first to establish "aisle" links
+                backupData.ingredientRows.forEach { row ->
+                    if (row.isNotEmpty()) {
+                        val name = row[0].trim()
+                        val aisle = if (row.size > 1) row[1].trim() else "General"
+                        if (name.isNotEmpty()) {
+                            val exists = ingredients.any { it.name.equals(name, ignoreCase = true) }
+                            if (!exists) {
+                                ingredientRepository.addIngredient(Ingredient(name = name, aisle = aisle))
+                            }
+                        }
                     }
                 }
 
                 // 2. Import Meals
-                importedMeals.forEach { importedMeal ->
+                val mealMap = mutableMapOf<String, MutableList<String>>()
+                backupData.mealRows.forEach { row ->
+                    if (row.isNotEmpty()) {
+                        val mealName = row[0].trim()
+                        val ingName = if (row.size > 1) row[1].trim() else ""
+                        if (mealName.isNotEmpty()) {
+                            val list = mealMap.getOrPut(mealName) { mutableListOf() }
+                            if (ingName.isNotEmpty()) list.add(ingName)
+                        }
+                    }
+                }
+
+                mealMap.forEach { (name, mealIngs) ->
                     val isDuplicate = meals.any { existingMeal ->
-                        existingMeal.name.equals(importedMeal.name.trim(), ignoreCase = true) &&
+                        existingMeal.name.equals(name, ignoreCase = true) &&
                         existingMeal.ingredients.map { it.lowercase().trim() }.sorted() == 
-                        importedMeal.ingredients.map { it.lowercase().trim() }.sorted()
+                        mealIngs.map { it.lowercase().trim() }.sorted()
                     }
                     if (!isDuplicate) {
-                        mealRepository.addMeal(importedMeal)
+                        mealRepository.addMeal(Meal(name = name, ingredients = mealIngs))
                     }
                 }
             }
@@ -108,18 +135,18 @@ fun MealListScreen(
                             onDismissRequest = { showMenu = false }
                         ) {
                             DropdownMenuItem(
-                                text = { Text("Import Data (Unified)") },
+                                text = { Text("Import Backup (ZIP)") },
                                 onClick = {
                                     showMenu = false
-                                    importDataLauncher.launch("text/*")
+                                    importDataLauncher.launch("application/zip")
                                 },
                                 leadingIcon = { Icon(Icons.Default.FileUpload, null) }
                             )
                             DropdownMenuItem(
-                                text = { Text("Export Data (Unified)") },
+                                text = { Text("Export Backup (ZIP)") },
                                 onClick = {
                                     showMenu = false
-                                    exportDataLauncher.launch("meal_planner_data.csv")
+                                    exportDataLauncher.launch("meal_planner_backup.zip")
                                 },
                                 leadingIcon = { Icon(Icons.Default.FileDownload, null) }
                             )
