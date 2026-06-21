@@ -139,7 +139,7 @@ fun MealListScreen(navController: NavController, mealRepository: MealRepository)
                     interactionSource = interactionSource,
                     singleLine = true,
                     textStyle = TextStyle(
-                        fontSize = 14.sp,
+                        fontSize = 16.sp,
                         color = MaterialTheme.colorScheme.onSurface
                     ),
                     cursorBrush = SolidColor(MaterialTheme.colorScheme.primary)
@@ -151,7 +151,7 @@ fun MealListScreen(navController: NavController, mealRepository: MealRepository)
                         singleLine = true,
                         visualTransformation = VisualTransformation.None,
                         interactionSource = interactionSource,
-                        placeholder = { Text("Search meals...", fontSize = 14.sp) },
+                        placeholder = { Text("Search meals...", fontSize = 16.sp) },
                         leadingIcon = {
                             Icon(Icons.Default.Search, null, modifier = Modifier.size(18.dp))
                         },
@@ -224,7 +224,7 @@ fun MealItem(meal: Meal, onDelete: () -> Unit, onClick: () -> Unit) {
                         Text(
                             text = meal.name, 
                             style = MaterialTheme.typography.bodyLarge,
-                            fontSize = 14.sp
+                            fontSize = 16.sp
                         )
                     }
                     IconButton(

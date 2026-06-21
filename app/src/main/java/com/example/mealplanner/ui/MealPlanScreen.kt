@@ -95,7 +95,7 @@ fun MealPlanScreen(
                     interactionSource = interactionSource,
                     singleLine = true,
                     textStyle = TextStyle(
-                        fontSize = 14.sp,
+                        fontSize = 16.sp,
                         color = MaterialTheme.colorScheme.onSurface
                     ),
                     cursorBrush = SolidColor(MaterialTheme.colorScheme.primary)
@@ -107,7 +107,7 @@ fun MealPlanScreen(
                         singleLine = true,
                         visualTransformation = VisualTransformation.None,
                         interactionSource = interactionSource,
-                        placeholder = { Text("Search plans by day or meal...", fontSize = 14.sp) },
+                        placeholder = { Text("Search plans by day or meal...", fontSize = 16.sp) },
                         leadingIcon = {
                             Icon(Icons.Default.Search, null, modifier = Modifier.size(18.dp))
                         },
@@ -186,7 +186,7 @@ fun MealPlanItem(
                         Text(
                             text = mealPlan.day, 
                             style = MaterialTheme.typography.bodyLarge,
-                            fontSize = 14.sp
+                            fontSize = 16.sp
                         )
                     }
                     IconButton(

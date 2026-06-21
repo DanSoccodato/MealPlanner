@@ -77,7 +77,7 @@ fun AddMealPlanScreen(
         Column(modifier = Modifier.padding(padding).padding(horizontal = 16.dp, vertical = 8.dp)) {
             val interactionSource = remember { MutableInteractionSource() }
 
-            Text(text = "Select Day:", style = MaterialTheme.typography.titleSmall, fontSize = 14.sp)
+            Text(text = "Select Day:", style = MaterialTheme.typography.titleSmall, fontSize = 16.sp)
             Box {
                 CompositionLocalProvider(LocalMinimumInteractiveComponentEnforcement provides false) {
                     BasicTextField(
@@ -91,7 +91,7 @@ fun AddMealPlanScreen(
                         interactionSource = interactionSource,
                         singleLine = true,
                         textStyle = TextStyle(
-                            fontSize = 14.sp,
+                            fontSize = 16.sp,
                             color = MaterialTheme.colorScheme.onSurface
                         ),
                         cursorBrush = SolidColor(MaterialTheme.colorScheme.primary)
@@ -131,7 +131,7 @@ fun AddMealPlanScreen(
                 DropdownMenu(expanded = expandedDay, onDismissRequest = { expandedDay = false }) {
                     days.forEach { day ->
                         DropdownMenuItem(
-                            text = { Text(day, fontSize = 14.sp) },
+                            text = { Text(day, fontSize = 16.sp) },
                             onClick = {
                                 selectedDay = day
                                 expandedDay = false
@@ -143,7 +143,7 @@ fun AddMealPlanScreen(
 
             Spacer(modifier = Modifier.height(8.dp))
             
-            Text(text = "Select Meals:", style = MaterialTheme.typography.titleSmall, fontSize = 14.sp)
+            Text(text = "Select Meals:", style = MaterialTheme.typography.titleSmall, fontSize = 16.sp)
             
             CompositionLocalProvider(LocalMinimumInteractiveComponentEnforcement provides false) {
                 val searchInteractionSource = remember { MutableInteractionSource() }
@@ -157,7 +157,7 @@ fun AddMealPlanScreen(
                     interactionSource = searchInteractionSource,
                     singleLine = true,
                     textStyle = TextStyle(
-                        fontSize = 14.sp,
+                        fontSize = 16.sp,
                         color = MaterialTheme.colorScheme.onSurface
                     ),
                     cursorBrush = SolidColor(MaterialTheme.colorScheme.primary)
@@ -169,7 +169,7 @@ fun AddMealPlanScreen(
                         singleLine = true,
                         visualTransformation = VisualTransformation.None,
                         interactionSource = searchInteractionSource,
-                        placeholder = { Text("Search meals...", fontSize = 14.sp) },
+                        placeholder = { Text("Search meals...", fontSize = 16.sp) },
                         leadingIcon = {
                             Icon(Icons.Default.Search, null, modifier = Modifier.size(18.dp))
                         },
@@ -204,9 +204,9 @@ fun AddMealPlanScreen(
             }
             
             if (allMeals.isEmpty()) {
-                Text("No meals available. Create some first!", fontSize = 14.sp, modifier = Modifier.padding(vertical = 8.dp))
+                Text("No meals available. Create some first!", fontSize = 16.sp, modifier = Modifier.padding(vertical = 8.dp))
             } else if (filteredMeals.isEmpty()) {
-                Text("No meals match your search.", fontSize = 14.sp, modifier = Modifier.padding(vertical = 8.dp))
+                Text("No meals match your search.", fontSize = 16.sp, modifier = Modifier.padding(vertical = 8.dp))
             }
 
             LazyColumn(modifier = Modifier.weight(1f).padding(vertical = 4.dp)) {
@@ -239,7 +239,7 @@ fun AddMealPlanScreen(
                                 Text(
                                     text = meal.name, 
                                     modifier = Modifier.padding(start = 8.dp),
-                                    fontSize = 14.sp
+                                    fontSize = 16.sp
                                 )
                             }
                         }

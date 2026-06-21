@@ -80,7 +80,7 @@ fun AddMealScreen(
                         Text(
                             text = "Ingredients:", 
                             style = MaterialTheme.typography.titleSmall,
-                            fontSize = 14.sp
+                            fontSize = 16.sp
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         HorizontalDivider()
@@ -145,7 +145,7 @@ fun AddMealScreen(
                     .padding(horizontal = 16.dp),
                 enabled = mealName.isNotBlank() && ingredients.any { it.isNotBlank() }
             ) {
-                Text(if (mealId == -1) "Save Meal" else "Update Meal", fontSize = 14.sp)
+                Text(if (mealId == -1) "Save Meal" else "Update Meal", fontSize = 16.sp)
             }
             
             Spacer(modifier = Modifier.height(16.dp))
@@ -172,7 +172,7 @@ fun CompactTextField(
             interactionSource = interactionSource,
             singleLine = true,
             textStyle = TextStyle(
-                fontSize = 14.sp,
+                fontSize = 16.sp,
                 color = MaterialTheme.colorScheme.onSurface
             ),
             cursorBrush = SolidColor(MaterialTheme.colorScheme.primary)
@@ -184,7 +184,7 @@ fun CompactTextField(
                 singleLine = true,
                 visualTransformation = VisualTransformation.None,
                 interactionSource = interactionSource,
-                placeholder = { Text(placeholder, fontSize = 14.sp) },
+                placeholder = { Text(placeholder, fontSize = 16.sp) },
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
                 container = {
                     OutlinedTextFieldDefaults.ContainerBox(
