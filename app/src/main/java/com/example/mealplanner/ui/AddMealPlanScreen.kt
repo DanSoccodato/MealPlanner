@@ -1,9 +1,11 @@
 package com.example.mealplanner.ui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
@@ -13,7 +15,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.mealplanner.data.MealPlan
 import com.example.mealplanner.data.MealPlanRepository
@@ -29,7 +35,6 @@ fun AddMealPlanScreen(
 ) {
     val days = listOf("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday", "Custom")
     
-    // Collect the plans as state to ensure we can find the existing one
     val mealPlans by mealPlanRepository.mealPlans.collectAsState()
     val existingPlan = remember(initialDay, mealPlans) {
         initialDay?.let { day -> mealPlans.find { it.day == day } }
@@ -50,7 +55,6 @@ fun AddMealPlanScreen(
         }
     }
 
-    // Update selectedMealIds when existingPlan is loaded
     LaunchedEffect(existingPlan) {
         if (existingPlan != null) {
             selectedMealIds.clear()
@@ -70,27 +74,64 @@ fun AddMealPlanScreen(
             )
         }
     ) { padding ->
-        Column(modifier = Modifier.padding(padding).padding(16.dp)) {
-            Text(text = "Select Day:", style = MaterialTheme.typography.titleMedium)
+        Column(modifier = Modifier.padding(padding).padding(horizontal = 16.dp, vertical = 8.dp)) {
+            val interactionSource = remember { MutableInteractionSource() }
+
+            Text(text = "Select Day:", style = MaterialTheme.typography.titleSmall, fontSize = 14.sp)
             Box {
-                OutlinedTextField(
-                    value = selectedDay,
-                    onValueChange = { },
-                    readOnly = true,
-                    enabled = initialDay == null, // Can't change day if editing
-                    modifier = Modifier.fillMaxWidth(),
-                    trailingIcon = {
-                        if (initialDay == null) {
-                            IconButton(onClick = { expandedDay = true }) {
-                                Icon(Icons.Default.ArrowDropDown, "Select Day")
+                CompositionLocalProvider(LocalMinimumInteractiveComponentEnforcement provides false) {
+                    BasicTextField(
+                        value = selectedDay,
+                        onValueChange = { },
+                        readOnly = true,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp)
+                            .height(36.dp),
+                        interactionSource = interactionSource,
+                        singleLine = true,
+                        textStyle = TextStyle(
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.onSurface
+                        ),
+                        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary)
+                    ) { innerTextField ->
+                        OutlinedTextFieldDefaults.DecorationBox(
+                            value = selectedDay,
+                            innerTextField = innerTextField,
+                            enabled = initialDay == null,
+                            singleLine = true,
+                            visualTransformation = VisualTransformation.None,
+                            interactionSource = interactionSource,
+                            trailingIcon = {
+                                if (initialDay == null) {
+                                    IconButton(
+                                        onClick = { expandedDay = true },
+                                        modifier = Modifier.size(24.dp)
+                                    ) {
+                                        Icon(Icons.Default.ArrowDropDown, "Select Day", modifier = Modifier.size(18.dp))
+                                    }
+                                }
+                            },
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                            container = {
+                                OutlinedTextFieldDefaults.ContainerBox(
+                                    enabled = initialDay == null,
+                                    isError = false,
+                                    interactionSource = interactionSource,
+                                    colors = OutlinedTextFieldDefaults.colors(),
+                                    shape = OutlinedTextFieldDefaults.shape,
+                                    focusedBorderThickness = 1.dp,
+                                    unfocusedBorderThickness = 1.dp
+                                )
                             }
-                        }
+                        )
                     }
-                )
+                }
                 DropdownMenu(expanded = expandedDay, onDismissRequest = { expandedDay = false }) {
                     days.forEach { day ->
                         DropdownMenuItem(
-                            text = { Text(day) },
+                            text = { Text(day, fontSize = 14.sp) },
                             onClick = {
                                 selectedDay = day
                                 expandedDay = false
@@ -100,36 +141,79 @@ fun AddMealPlanScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(8.dp))
             
-            Text(text = "Select Meals:", style = MaterialTheme.typography.titleMedium)
+            Text(text = "Select Meals:", style = MaterialTheme.typography.titleSmall, fontSize = 14.sp)
             
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
-                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                placeholder = { Text("Search meals...") },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                trailingIcon = {
-                    if (searchQuery.isNotEmpty()) {
-                        IconButton(onClick = { searchQuery = "" }) {
-                            Icon(Icons.Default.Clear, contentDescription = "Clear search")
+            CompositionLocalProvider(LocalMinimumInteractiveComponentEnforcement provides false) {
+                val searchInteractionSource = remember { MutableInteractionSource() }
+                BasicTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp)
+                        .height(36.dp),
+                    interactionSource = searchInteractionSource,
+                    singleLine = true,
+                    textStyle = TextStyle(
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurface
+                    ),
+                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary)
+                ) { innerTextField ->
+                    OutlinedTextFieldDefaults.DecorationBox(
+                        value = searchQuery,
+                        innerTextField = innerTextField,
+                        enabled = true,
+                        singleLine = true,
+                        visualTransformation = VisualTransformation.None,
+                        interactionSource = searchInteractionSource,
+                        placeholder = { Text("Search meals...", fontSize = 14.sp) },
+                        leadingIcon = {
+                            Icon(Icons.Default.Search, null, modifier = Modifier.size(18.dp))
+                        },
+                        trailingIcon = {
+                            if (searchQuery.isNotEmpty()) {
+                                IconButton(
+                                    onClick = { searchQuery = "" },
+                                    modifier = Modifier.size(24.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.Clear,
+                                        "Clear search",
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
+                        },
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                        container = {
+                            OutlinedTextFieldDefaults.ContainerBox(
+                                enabled = true,
+                                isError = false,
+                                interactionSource = searchInteractionSource,
+                                colors = OutlinedTextFieldDefaults.colors(),
+                                shape = OutlinedTextFieldDefaults.shape,
+                                focusedBorderThickness = 1.dp,
+                                unfocusedBorderThickness = 1.dp
+                            )
                         }
-                    }
-                },
-                singleLine = true
-            )
+                    )
+                }
+            }
             
             if (allMeals.isEmpty()) {
-                Text("No meals available. Create some first!")
+                Text("No meals available. Create some first!", fontSize = 14.sp, modifier = Modifier.padding(vertical = 8.dp))
             } else if (filteredMeals.isEmpty()) {
-                Text("No meals match your search.")
+                Text("No meals match your search.", fontSize = 14.sp, modifier = Modifier.padding(vertical = 8.dp))
             }
 
-            LazyColumn(modifier = Modifier.weight(1f)) {
+            LazyColumn(modifier = Modifier.weight(1f).padding(vertical = 4.dp)) {
                 items(filteredMeals) { meal ->
-                    Row(
+                    Card(
                         modifier = Modifier
+                            .padding(vertical = 2.dp)
                             .fillMaxWidth()
                             .clickable {
                                 if (selectedMealIds.contains(meal.id)) {
@@ -138,17 +222,27 @@ fun AddMealPlanScreen(
                                     selectedMealIds.add(meal.id)
                                 }
                             }
-                            .padding(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Checkbox(
-                            checked = selectedMealIds.contains(meal.id),
-                            onCheckedChange = { checked ->
-                                if (checked) selectedMealIds.add(meal.id)
-                                else selectedMealIds.remove(meal.id)
+                        CompositionLocalProvider(LocalMinimumInteractiveComponentEnforcement provides false) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Checkbox(
+                                    checked = selectedMealIds.contains(meal.id),
+                                    onCheckedChange = { checked ->
+                                        if (checked) selectedMealIds.add(meal.id)
+                                        else selectedMealIds.remove(meal.id)
+                                    },
+                                    modifier = Modifier.size(32.dp)
+                                )
+                                Text(
+                                    text = meal.name, 
+                                    modifier = Modifier.padding(start = 8.dp),
+                                    fontSize = 14.sp
+                                )
                             }
-                        )
-                        Text(text = meal.name, modifier = Modifier.padding(start = 8.dp))
+                        }
                     }
                 }
             }
@@ -160,7 +254,7 @@ fun AddMealPlanScreen(
                         navController.popBackStack()
                     }
                 },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                 enabled = selectedMealIds.isNotEmpty()
             ) {
                 Text("Save Plan")
