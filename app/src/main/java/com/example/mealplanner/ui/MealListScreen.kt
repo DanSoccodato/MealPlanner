@@ -1,36 +1,81 @@
 package com.example.mealplanner.ui
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.mealplanner.data.Meal
 import com.example.mealplanner.data.MealRepository
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.input.VisualTransformation
+import com.example.mealplanner.utils.CsvExporter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MealListScreen(navController: NavController, mealRepository: MealRepository) {
-    val meals by mealRepository.meals.collectAsState(initial = emptyList())
+    val meals by mealRepository.meals.collectAsState(initial = emptyList<Meal>())
     var searchQuery by remember { mutableStateOf("") }
+    val context = LocalContext.current
+    var showMenu by remember { mutableStateOf(false) }
+
+    val exportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("text/csv"),
+        onResult = { uri: Uri? ->
+            uri?.let {
+                CsvExporter.exportMealsToCsv(context, it, meals)
+            }
+        }
+    )
+
+    val importLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent(),
+        onResult = { uri: Uri? ->
+            uri?.let {
+                val importedMeals = CsvExporter.importMealsFromCsv(context, it)
+                
+                // 1. Filter out duplicates within the imported file itself
+                val uniqueToImport = importedMeals.distinctBy { meal ->
+                    meal.name.lowercase().trim() to meal.ingredients.map { it.lowercase().trim() }.sorted()
+                }
+
+                // 2. Filter out meals that already exist in the database
+                uniqueToImport.forEach { importedMeal ->
+                    val isDuplicate = meals.any { existingMeal ->
+                        existingMeal.name.equals(importedMeal.name.trim(), ignoreCase = true) &&
+                        existingMeal.ingredients.map { it.lowercase().trim() }.sorted() == 
+                        importedMeal.ingredients.map { it.lowercase().trim() }.sorted()
+                    }
+                    if (!isDuplicate) {
+                        mealRepository.addMeal(importedMeal)
+                    }
+                }
+            }
+        }
+    )
 
     val filteredMeals = remember(meals, searchQuery) {
         if (searchQuery.isEmpty()) {
@@ -42,7 +87,37 @@ fun MealListScreen(navController: NavController, mealRepository: MealRepository)
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("Meal List") })
+            TopAppBar(
+                title = { Text("Meal List") },
+                actions = {
+                    Box {
+                        IconButton(onClick = { showMenu = true }) {
+                            Icon(Icons.Default.MoreVert, contentDescription = "More options")
+                        }
+                        DropdownMenu(
+                            expanded = showMenu,
+                            onDismissRequest = { showMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Import from CSV") },
+                                onClick = {
+                                    showMenu = false
+                                    importLauncher.launch("text/*")
+                                },
+                                leadingIcon = { Icon(Icons.Default.FileUpload, null) }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Export to CSV") },
+                                onClick = {
+                                    showMenu = false
+                                    exportLauncher.launch("meals.csv")
+                                },
+                                leadingIcon = { Icon(Icons.Default.FileDownload, null) }
+                            )
+                        }
+                    }
+                }
+            )
         },
         floatingActionButton = {
             FloatingActionButton(onClick = { navController.navigate("addMeal") }) {
@@ -60,7 +135,7 @@ fun MealListScreen(navController: NavController, mealRepository: MealRepository)
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(vertical = 4.dp, horizontal = 8.dp)
-                        .height(36.dp), // Set desired height here (e.g., 36.dp)
+                        .height(36.dp),
                     interactionSource = interactionSource,
                     singleLine = true,
                     textStyle = TextStyle(
@@ -69,7 +144,7 @@ fun MealListScreen(navController: NavController, mealRepository: MealRepository)
                     ),
                     cursorBrush = SolidColor(MaterialTheme.colorScheme.primary)
                 ) { innerTextField ->
-                    TextFieldDefaults.OutlinedTextFieldDecorationBox(
+                    OutlinedTextFieldDefaults.DecorationBox(
                         value = searchQuery,
                         innerTextField = innerTextField,
                         enabled = true,
@@ -140,7 +215,6 @@ fun MealItem(meal: Meal, onDelete: () -> Unit, onClick: () -> Unit) {
             .fillMaxWidth()
             .clickable { onClick() }
     ) {
-        // In Material 3 1.2.0+, LocalMinimumInteractiveComponentSize was replaced by LocalMinimumInteractiveComponentEnforcement
         CompositionLocalProvider(LocalMinimumInteractiveComponentEnforcement provides false) {
             Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
                 Row(
