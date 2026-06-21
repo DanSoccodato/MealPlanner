@@ -7,5 +7,5 @@ import androidx.room.PrimaryKey
 data class Ingredient(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val name: String,
-    val aisle: String
+    val section: String
 )

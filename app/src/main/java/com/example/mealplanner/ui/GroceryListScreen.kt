@@ -10,6 +10,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DragHandle
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -36,7 +37,8 @@ fun GroceryListScreen(
     mealPlanRepository: MealPlanRepository,
     mealRepository: MealRepository,
     groceryRepository: GroceryRepository,
-    ingredientRepository: IngredientRepository
+    ingredientRepository: IngredientRepository,
+    onOpenDrawer: () -> Unit
 ) {
     val mealPlans by mealPlanRepository.mealPlans.collectAsState()
     val meals by mealRepository.meals.collectAsState()
@@ -101,6 +103,11 @@ fun GroceryListScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Grocery List") },
+                navigationIcon = {
+                    IconButton(onClick = onOpenDrawer) {
+                        Icon(Icons.Default.Menu, contentDescription = "Menu")
+                    }
+                },
                 actions = {
                     TextButton(onClick = { groceryRepository.reset() }) {
                         Text("Reset", fontSize = 14.sp)
@@ -183,11 +190,11 @@ fun GroceryListScreen(
                             
                             val itemData = groceryItemsState.find { it.name == item }
                             val isBought = itemData?.isBought == true
-                            val aisle = allIngredients.find { it.name.equals(item, ignoreCase = true) }?.aisle
+                            val section = allIngredients.find { it.name.equals(item, ignoreCase = true) }?.section
                             
                             GroceryItem(
                                 item = item,
-                                aisle = aisle,
+                                section = section,
                                 isBought = isBought,
                                 elevation = elevation.value,
                                 onToggleBought = { groceryRepository.toggleBought(item) },
@@ -206,7 +213,7 @@ fun GroceryListScreen(
 @Composable
 fun GroceryItem(
     item: String, 
-    aisle: String?,
+    section: String?,
     isBought: Boolean,
     elevation: Dp,
     onToggleBought: () -> Unit,
@@ -249,9 +256,9 @@ fun GroceryItem(
                             color = if (isBought) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.onSurface
                         )
                     )
-                    if (aisle != null) {
+                    if (section != null) {
                         Text(
-                            text = aisle,
+                            text = section,
                             fontSize = 11.sp,
                             color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.7f)
                         )

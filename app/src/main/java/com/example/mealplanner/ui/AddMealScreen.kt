@@ -45,9 +45,9 @@ fun AddMealScreen(
     
     val allIngredients by ingredientRepository.ingredients.collectAsState()
     
-    var showAisleDialog by remember { mutableStateOf(false) }
-    var ingredientToSetAisle by remember { mutableStateOf<String?>(null) }
-    var newAisleValue by remember { mutableStateOf("General") }
+    var showSectionDialog by remember { mutableStateOf(false) }
+    var ingredientToSetSection by remember { mutableStateOf<String?>(null) }
+    var newSectionValue by remember { mutableStateOf("General") }
 
     val scrollState = rememberScrollState()
 
@@ -167,15 +167,15 @@ fun AddMealScreen(
                 onClick = {
                     val finalIngredients = ingredientNames.filter { it.isNotBlank() }
                     
-                    // Check for new ingredients and prompt for aisle if needed
+                    // Check for new ingredients and prompt for section if needed
                     val newIngredients = finalIngredients.filter { ingName ->
                         allIngredients.none { it.name.equals(ingName, ignoreCase = true) }
                     }
                     
                     if (newIngredients.isNotEmpty()) {
-                        ingredientToSetAisle = newIngredients.first()
-                        newAisleValue = "General"
-                        showAisleDialog = true
+                        ingredientToSetSection = newIngredients.first()
+                        newSectionValue = "General"
+                        showSectionDialog = true
                     } else {
                         saveMealAndPop(mealId, mealName, finalIngredients, mealRepository, navController)
                     }
@@ -192,27 +192,27 @@ fun AddMealScreen(
         }
     }
 
-    if (showAisleDialog && ingredientToSetAisle != null) {
+    if (showSectionDialog && ingredientToSetSection != null) {
         AlertDialog(
-            onDismissRequest = { showAisleDialog = false },
-            title = { Text("New Ingredient: ${ingredientToSetAisle}") },
+            onDismissRequest = { showSectionDialog = false },
+            title = { Text("New Ingredient: ${ingredientToSetSection}") },
             text = {
                 Column {
-                    Text("Please specify the aisle category:")
+                    Text("Please specify the section category:")
                     Spacer(modifier = Modifier.height(8.dp))
                     CompactTextField(
-                        value = newAisleValue,
-                        onValueChange = { newAisleValue = it },
-                        placeholder = "Aisle (e.g., Produce, Dairy)"
+                        value = newSectionValue,
+                        onValueChange = { newSectionValue = it },
+                        placeholder = "Section (e.g., Produce, Dairy)"
                     )
                 }
             },
             confirmButton = {
                 TextButton(onClick = {
-                    val currentIng = ingredientToSetAisle!!
-                    val currentAisle = newAisleValue
+                    val currentIng = ingredientToSetSection!!
+                    val currentSection = newSectionValue
                     
-                    ingredientRepository.addIngredient(Ingredient(name = currentIng, aisle = currentAisle))
+                    ingredientRepository.addIngredient(Ingredient(name = currentIng, section = currentSection))
                     
                     // Check if there are more new ingredients
                     val finalIngredients = ingredientNames.filter { it.isNotBlank() }
@@ -225,10 +225,10 @@ fun AddMealScreen(
                     }
                     
                     if (remainingNew.isNotEmpty()) {
-                        ingredientToSetAisle = remainingNew.first()
-                        newAisleValue = "General"
+                        ingredientToSetSection = remainingNew.first()
+                        newSectionValue = "General"
                     } else {
-                        showAisleDialog = false
+                        showSectionDialog = false
                         saveMealAndPop(mealId, mealName, finalIngredients, mealRepository, navController)
                     }
                 }) {
@@ -236,7 +236,7 @@ fun AddMealScreen(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showAisleDialog = false }) {
+                TextButton(onClick = { showSectionDialog = false }) {
                     Text("Cancel")
                 }
             }

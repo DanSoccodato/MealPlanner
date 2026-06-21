@@ -19,7 +19,7 @@ object CsvExporter {
 
                 // Ingredients CSV
                 zipOut.putNextEntry(ZipEntry("ingredients.csv"))
-                writeCsvToStream(zipOut, listOf("Ingredient", "Aisle"), ingredientRows)
+                writeCsvToStream(zipOut, listOf("Ingredient", "Section"), ingredientRows)
                 zipOut.closeEntry()
             }
         }

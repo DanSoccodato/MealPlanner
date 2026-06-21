@@ -11,12 +11,14 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
@@ -41,7 +43,8 @@ import com.example.mealplanner.utils.CsvExporter
 fun MealListScreen(
     navController: NavController, 
     mealRepository: MealRepository,
-    ingredientRepository: IngredientRepository
+    ingredientRepository: IngredientRepository,
+    onOpenDrawer: () -> Unit
 ) {
     val meals by mealRepository.meals.collectAsState(initial = emptyList<Meal>())
     val ingredients by ingredientRepository.ingredients.collectAsState(initial = emptyList())
@@ -60,7 +63,7 @@ fun MealListScreen(
                         meal.ingredients.map { listOf(meal.name, it) }
                     }
                 }
-                val ingredientRows = ingredients.map { listOf(it.name, it.aisle) }
+                val ingredientRows = ingredients.map { listOf(it.name, it.section) }
                 CsvExporter.exportBackup(context, it, mealRows, ingredientRows)
             }
         }
@@ -72,15 +75,15 @@ fun MealListScreen(
             uri?.let {
                 val backupData = CsvExporter.importBackup(context, it)
                 
-                // 1. Import Ingredients first to establish "aisle" links
+                // 1. Import Ingredients first to establish "section" links
                 backupData.ingredientRows.forEach { row ->
                     if (row.isNotEmpty()) {
                         val name = row[0].trim()
-                        val aisle = if (row.size > 1) row[1].trim() else "General"
+                        val section = if (row.size > 1) row[1].trim() else "General"
                         if (name.isNotEmpty()) {
                             val exists = ingredients.any { it.name.equals(name, ignoreCase = true) }
                             if (!exists) {
-                                ingredientRepository.addIngredient(Ingredient(name = name, aisle = aisle))
+                                ingredientRepository.addIngredient(Ingredient(name = name, section = section))
                             }
                         }
                     }
@@ -125,6 +128,11 @@ fun MealListScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Meal List") },
+                navigationIcon = {
+                    IconButton(onClick = onOpenDrawer) {
+                        Icon(Icons.Default.Menu, contentDescription = "Menu")
+                    }
+                },
                 actions = {
                     Box {
                         IconButton(onClick = { showMenu = true }) {
@@ -157,7 +165,7 @@ fun MealListScreen(
         },
         floatingActionButton = {
             FloatingActionButton(onClick = { navController.navigate("addMeal") }) {
-                Text("Add")
+                Icon(Icons.Default.Add, contentDescription = "Add")
             }
         }
     ) { padding ->
