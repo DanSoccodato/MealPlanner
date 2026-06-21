@@ -30,40 +30,49 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.mealplanner.data.IngredientRepository
 import com.example.mealplanner.data.Meal
 import com.example.mealplanner.data.MealRepository
 import com.example.mealplanner.utils.CsvExporter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MealListScreen(navController: NavController, mealRepository: MealRepository) {
+fun MealListScreen(
+    navController: NavController, 
+    mealRepository: MealRepository,
+    ingredientRepository: IngredientRepository
+) {
     val meals by mealRepository.meals.collectAsState(initial = emptyList<Meal>())
+    val ingredients by ingredientRepository.ingredients.collectAsState(initial = emptyList())
     var searchQuery by remember { mutableStateOf("") }
     val context = LocalContext.current
     var showMenu by remember { mutableStateOf(false) }
 
-    val exportLauncher = rememberLauncherForActivityResult(
+    val exportDataLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("text/csv"),
         onResult = { uri: Uri? ->
             uri?.let {
-                CsvExporter.exportMealsToCsv(context, it, meals)
+                CsvExporter.exportUnifiedData(context, it, meals, ingredients)
             }
         }
     )
 
-    val importLauncher = rememberLauncherForActivityResult(
+    val importDataLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent(),
         onResult = { uri: Uri? ->
             uri?.let {
-                val importedMeals = CsvExporter.importMealsFromCsv(context, it)
+                val (importedMeals, importedIngredients) = CsvExporter.importUnifiedData(context, it)
                 
-                // 1. Filter out duplicates within the imported file itself
-                val uniqueToImport = importedMeals.distinctBy { meal ->
-                    meal.name.lowercase().trim() to meal.ingredients.map { it.lowercase().trim() }.sorted()
+                // 1. Import Ingredients first
+                importedIngredients.forEach { importedIng ->
+                    val exists = ingredients.any { it.name.equals(importedIng.name.trim(), ignoreCase = true) }
+                    if (!exists) {
+                        ingredientRepository.addIngredient(importedIng)
+                    }
                 }
 
-                // 2. Filter out meals that already exist in the database
-                uniqueToImport.forEach { importedMeal ->
+                // 2. Import Meals
+                importedMeals.forEach { importedMeal ->
                     val isDuplicate = meals.any { existingMeal ->
                         existingMeal.name.equals(importedMeal.name.trim(), ignoreCase = true) &&
                         existingMeal.ingredients.map { it.lowercase().trim() }.sorted() == 
@@ -99,18 +108,18 @@ fun MealListScreen(navController: NavController, mealRepository: MealRepository)
                             onDismissRequest = { showMenu = false }
                         ) {
                             DropdownMenuItem(
-                                text = { Text("Import from CSV") },
+                                text = { Text("Import Data (Unified)") },
                                 onClick = {
                                     showMenu = false
-                                    importLauncher.launch("text/*")
+                                    importDataLauncher.launch("text/*")
                                 },
                                 leadingIcon = { Icon(Icons.Default.FileUpload, null) }
                             )
                             DropdownMenuItem(
-                                text = { Text("Export to CSV") },
+                                text = { Text("Export Data (Unified)") },
                                 onClick = {
                                     showMenu = false
-                                    exportLauncher.launch("meals.csv")
+                                    exportDataLauncher.launch("meal_planner_data.csv")
                                 },
                                 leadingIcon = { Icon(Icons.Default.FileDownload, null) }
                             )

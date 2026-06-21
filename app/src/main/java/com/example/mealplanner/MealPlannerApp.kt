@@ -22,6 +22,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.mealplanner.data.AppDatabase
 import com.example.mealplanner.data.GroceryRepository
+import com.example.mealplanner.data.IngredientRepository
 import com.example.mealplanner.data.MealPlanRepository
 import com.example.mealplanner.data.MealRepository
 import com.example.mealplanner.ui.AddMealPlanScreen
@@ -43,6 +44,7 @@ fun MealPlannerApp() {
     val mealRepository = remember { MealRepository(database.mealDao()) }
     val mealPlanRepository = remember { MealPlanRepository(database.mealPlanDao()) }
     val groceryRepository = remember { GroceryRepository(database.groceryDao()) }
+    val ingredientRepository = remember { IngredientRepository(database.ingredientDao()) }
 
     val navController = rememberNavController()
 
@@ -82,17 +84,17 @@ fun MealPlannerApp() {
             modifier = Modifier.padding(innerPadding)
         ) {
             composable(Screen.MealList.route) { 
-                MealListScreen(navController, mealRepository) 
+                MealListScreen(navController, mealRepository, ingredientRepository) 
             }
             composable("addMeal") { 
-                AddMealScreen(navController, mealRepository) 
+                AddMealScreen(navController, mealRepository, ingredientRepository) 
             }
             composable(
                 route = "editMeal/{mealId}",
                 arguments = listOf(navArgument("mealId") { type = NavType.IntType })
             ) { backStackEntry ->
                 val mealId = backStackEntry.arguments?.getInt("mealId") ?: -1
-                AddMealScreen(navController, mealRepository, mealId)
+                AddMealScreen(navController, mealRepository, ingredientRepository, mealId)
             }
             composable(Screen.MealPlan.route) { 
                 MealPlanScreen(navController, mealPlanRepository, mealRepository, groceryRepository)
@@ -108,7 +110,7 @@ fun MealPlannerApp() {
                 AddMealPlanScreen(navController, mealPlanRepository, mealRepository, day)
             }
             composable(Screen.GroceryList.route) { 
-                GroceryListScreen(navController, mealPlanRepository, mealRepository, groceryRepository)
+                GroceryListScreen(navController, mealPlanRepository, mealRepository, groceryRepository, ingredientRepository)
             }
         }
     }

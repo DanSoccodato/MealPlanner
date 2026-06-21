@@ -14,7 +14,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
@@ -25,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.mealplanner.data.GroceryRepository
+import com.example.mealplanner.data.IngredientRepository
 import com.example.mealplanner.data.MealPlanRepository
 import com.example.mealplanner.data.MealRepository
 import org.burnoutcrew.reorderable.*
@@ -35,11 +35,13 @@ fun GroceryListScreen(
     navController: NavController,
     mealPlanRepository: MealPlanRepository,
     mealRepository: MealRepository,
-    groceryRepository: GroceryRepository
+    groceryRepository: GroceryRepository,
+    ingredientRepository: IngredientRepository
 ) {
     val mealPlans by mealPlanRepository.mealPlans.collectAsState()
     val meals by mealRepository.meals.collectAsState()
     val groceryItemsState by groceryRepository.items.collectAsState()
+    val allIngredients by ingredientRepository.ingredients.collectAsState()
 
     // 1. Sync meal ingredients with database to ensure they have positions
     LaunchedEffect(mealPlans, meals) {
@@ -89,9 +91,6 @@ fun GroceryListScreen(
         localOrderedItems.add(to.index, localOrderedItems.removeAt(from.index))
     }, canDragOver = { _, _ -> true })
 
-    // When drag ends, sync the final order to the database
-    // We detect drag end by checking state.isDragging (if available) or simply 
-    // updating DB after every move, but the local list handles the UI instantly.
     LaunchedEffect(localOrderedItems.toList()) {
         groceryRepository.updateItemPositions(localOrderedItems.toList())
     }
@@ -184,9 +183,11 @@ fun GroceryListScreen(
                             
                             val itemData = groceryItemsState.find { it.name == item }
                             val isBought = itemData?.isBought == true
+                            val aisle = allIngredients.find { it.name.equals(item, ignoreCase = true) }?.aisle
                             
                             GroceryItem(
                                 item = item,
+                                aisle = aisle,
                                 isBought = isBought,
                                 elevation = elevation.value,
                                 onToggleBought = { groceryRepository.toggleBought(item) },
@@ -205,6 +206,7 @@ fun GroceryListScreen(
 @Composable
 fun GroceryItem(
     item: String, 
+    aisle: String?,
     isBought: Boolean,
     elevation: Dp,
     onToggleBought: () -> Unit,
@@ -238,15 +240,23 @@ fun GroceryItem(
                     modifier = Modifier.size(32.dp)
                 )
                 
-                Text(
-                    text = item,
-                    modifier = Modifier.weight(1f).padding(start = 4.dp),
-                    fontSize = 14.sp,
-                    style = LocalTextStyle.current.copy(
-                        textDecoration = if (isBought) TextDecoration.LineThrough else TextDecoration.None,
-                        color = if (isBought) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.onSurface
+                Column(modifier = Modifier.weight(1f).padding(start = 4.dp)) {
+                    Text(
+                        text = item,
+                        fontSize = 14.sp,
+                        style = LocalTextStyle.current.copy(
+                            textDecoration = if (isBought) TextDecoration.LineThrough else TextDecoration.None,
+                            color = if (isBought) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.onSurface
+                        )
                     )
-                )
+                    if (aisle != null) {
+                        Text(
+                            text = aisle,
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.7f)
+                        )
+                    }
+                }
                 
                 IconButton(
                     onClick = onDelete,

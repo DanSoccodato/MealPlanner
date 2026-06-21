@@ -19,25 +19,36 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.mealplanner.data.Ingredient
+import com.example.mealplanner.data.IngredientRepository
 import com.example.mealplanner.data.Meal
 import com.example.mealplanner.data.MealRepository
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddMealScreen(
     navController: NavController, 
     mealRepository: MealRepository,
+    ingredientRepository: IngredientRepository,
     mealId: Int = -1
 ) {
+    val scope = rememberCoroutineScope()
     val existingMeal = remember(mealId) { 
         if (mealId != -1) mealRepository.getMealById(mealId) else null 
     }
 
     var mealName by remember { mutableStateOf(existingMeal?.name ?: "") }
-    var ingredients by remember { 
+    var ingredientNames by remember { 
         mutableStateOf(existingMeal?.ingredients ?: listOf("")) 
     }
     
+    val allIngredients by ingredientRepository.ingredients.collectAsState()
+    
+    var showAisleDialog by remember { mutableStateOf(false) }
+    var ingredientToSetAisle by remember { mutableStateOf<String?>(null) }
+    var newAisleValue by remember { mutableStateOf("General") }
+
     val scrollState = rememberScrollState()
 
     Scaffold(
@@ -58,7 +69,6 @@ fun AddMealScreen(
                 .padding(padding)
                 .verticalScroll(scrollState)
         ) {
-            // Meal Name Input - Styled like the Search Bar in MealListScreen
             Spacer(modifier = Modifier.height(4.dp))
             CompactTextField(
                 value = mealName,
@@ -69,7 +79,6 @@ fun AddMealScreen(
 
             Spacer(modifier = Modifier.height(4.dp))
 
-            // Ingredients Card - Styled like the MealItem card in MealListScreen
             Card(
                 modifier = Modifier
                     .padding(horizontal = 8.dp, vertical = 2.dp)
@@ -86,37 +95,65 @@ fun AddMealScreen(
                         HorizontalDivider()
                         Spacer(modifier = Modifier.height(4.dp))
 
-                        ingredients.forEachIndexed { index, ingredient ->
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.padding(vertical = 2.dp)
-                            ) {
-                                CompactTextField(
-                                    value = ingredient,
-                                    onValueChange = { newValue ->
-                                        ingredients = ingredients.toMutableList().also {
-                                            it[index] = newValue
-                                        }
-                                    },
-                                    placeholder = "Ingredient ${index + 1}",
-                                    modifier = Modifier.weight(1f)
-                                )
-
-                                IconButton(
-                                    onClick = {
-                                        if (index == ingredients.size - 1) {
-                                            ingredients = ingredients + ""
-                                        } else {
-                                            ingredients = ingredients.filterIndexed { i, _ -> i != index }
-                                        }
-                                    },
-                                    modifier = Modifier.size(32.dp)
+                        ingredientNames.forEachIndexed { index, name ->
+                            Column {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(vertical = 2.dp)
                                 ) {
-                                    Icon(
-                                        imageVector = if (index == ingredients.size - 1) Icons.Default.Add else Icons.Default.Delete,
-                                        contentDescription = if (index == ingredients.size - 1) "Add" else "Remove",
-                                        modifier = Modifier.size(20.dp)
-                                    )
+                                    Box(modifier = Modifier.weight(1f)) {
+                                        CompactTextField(
+                                            value = name,
+                                            onValueChange = { newValue ->
+                                                ingredientNames = ingredientNames.toMutableList().also {
+                                                    it[index] = newValue
+                                                }
+                                            },
+                                            placeholder = "Ingredient ${index + 1}",
+                                            modifier = Modifier.fillMaxWidth()
+                                        )
+                                    }
+
+                                    IconButton(
+                                        onClick = {
+                                            if (index == ingredientNames.size - 1) {
+                                                ingredientNames = ingredientNames + ""
+                                            } else {
+                                                ingredientNames = ingredientNames.filterIndexed { i, _ -> i != index }
+                                            }
+                                        },
+                                        modifier = Modifier.size(32.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = if (index == ingredientNames.size - 1) Icons.Default.Add else Icons.Default.Delete,
+                                            contentDescription = if (index == ingredientNames.size - 1) "Add" else "Remove",
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                }
+                                
+                                // Suggestions
+                                val currentName = name
+                                if (currentName.isNotBlank() && allIngredients.none { it.name.equals(currentName, ignoreCase = true) }) {
+                                    val suggestions = allIngredients.filter { 
+                                        it.name.contains(currentName, ignoreCase = true) 
+                                    }.take(3)
+                                    
+                                    if (suggestions.isNotEmpty()) {
+                                        Row(modifier = Modifier.padding(start = 12.dp)) {
+                                            suggestions.forEach { suggestion ->
+                                                SuggestionChip(
+                                                    onClick = {
+                                                        ingredientNames = ingredientNames.toMutableList().also {
+                                                            it[index] = suggestion.name
+                                                        }
+                                                    },
+                                                    label = { Text(suggestion.name, fontSize = 12.sp) },
+                                                    modifier = Modifier.padding(end = 4.dp)
+                                                )
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -128,22 +165,25 @@ fun AddMealScreen(
 
             Button(
                 onClick = {
-                    val meal = Meal(
-                        id = if (mealId == -1) 0 else mealId, 
-                        name = mealName, 
-                        ingredients = ingredients.filter { it.isNotBlank() }
-                    )
-                    if (mealId == -1) {
-                        mealRepository.addMeal(meal)
-                    } else {
-                        mealRepository.updateMeal(meal)
+                    val finalIngredients = ingredientNames.filter { it.isNotBlank() }
+                    
+                    // Check for new ingredients and prompt for aisle if needed
+                    val newIngredients = finalIngredients.filter { ingName ->
+                        allIngredients.none { it.name.equals(ingName, ignoreCase = true) }
                     }
-                    navController.popBackStack()
+                    
+                    if (newIngredients.isNotEmpty()) {
+                        ingredientToSetAisle = newIngredients.first()
+                        newAisleValue = "General"
+                        showAisleDialog = true
+                    } else {
+                        saveMealAndPop(mealId, mealName, finalIngredients, mealRepository, navController)
+                    }
                 },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp),
-                enabled = mealName.isNotBlank() && ingredients.any { it.isNotBlank() }
+                enabled = mealName.isNotBlank() && ingredientNames.any { it.isNotBlank() }
             ) {
                 Text(if (mealId == -1) "Save Meal" else "Update Meal", fontSize = 16.sp)
             }
@@ -151,6 +191,77 @@ fun AddMealScreen(
             Spacer(modifier = Modifier.height(16.dp))
         }
     }
+
+    if (showAisleDialog && ingredientToSetAisle != null) {
+        AlertDialog(
+            onDismissRequest = { showAisleDialog = false },
+            title = { Text("New Ingredient: ${ingredientToSetAisle}") },
+            text = {
+                Column {
+                    Text("Please specify the aisle category:")
+                    Spacer(modifier = Modifier.height(8.dp))
+                    CompactTextField(
+                        value = newAisleValue,
+                        onValueChange = { newAisleValue = it },
+                        placeholder = "Aisle (e.g., Produce, Dairy)"
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val currentIng = ingredientToSetAisle!!
+                    val currentAisle = newAisleValue
+                    
+                    ingredientRepository.addIngredient(Ingredient(name = currentIng, aisle = currentAisle))
+                    
+                    // Check if there are more new ingredients
+                    val finalIngredients = ingredientNames.filter { it.isNotBlank() }
+                    // Note: allIngredients is a state, it might not update immediately after addIngredient call
+                    // but since we are in a Composable and using State, it should trigger recomposition.
+                    // However, for the loop logic we might need to manually exclude the one we just added.
+                    val remainingNew = finalIngredients.filter { name ->
+                        allIngredients.none { it.name.equals(name, ignoreCase = true) } &&
+                        !name.equals(currentIng, ignoreCase = true)
+                    }
+                    
+                    if (remainingNew.isNotEmpty()) {
+                        ingredientToSetAisle = remainingNew.first()
+                        newAisleValue = "General"
+                    } else {
+                        showAisleDialog = false
+                        saveMealAndPop(mealId, mealName, finalIngredients, mealRepository, navController)
+                    }
+                }) {
+                    Text("OK")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAisleDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+}
+
+private fun saveMealAndPop(
+    mealId: Int,
+    mealName: String,
+    ingredients: List<String>,
+    mealRepository: MealRepository,
+    navController: NavController
+) {
+    val meal = Meal(
+        id = if (mealId == -1) 0 else mealId, 
+        name = mealName, 
+        ingredients = ingredients
+    )
+    if (mealId == -1) {
+        mealRepository.addMeal(meal)
+    } else {
+        mealRepository.updateMeal(meal)
+    }
+    navController.popBackStack()
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
