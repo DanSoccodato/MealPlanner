@@ -36,6 +36,7 @@ import com.example.mealplanner.data.Ingredient
 import com.example.mealplanner.data.IngredientRepository
 import com.example.mealplanner.data.Meal
 import com.example.mealplanner.data.MealRepository
+import com.example.mealplanner.data.SettingsRepository
 import com.example.mealplanner.utils.CsvExporter
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -44,10 +45,12 @@ fun MealListScreen(
     navController: NavController, 
     mealRepository: MealRepository,
     ingredientRepository: IngredientRepository,
+    settingsRepository: SettingsRepository,
     onOpenDrawer: () -> Unit
 ) {
     val meals by mealRepository.meals.collectAsState(initial = emptyList<Meal>())
     val ingredients by ingredientRepository.ingredients.collectAsState(initial = emptyList())
+    val expandedMeals by settingsRepository.expandedMeals.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
     val context = LocalContext.current
     var showMenu by remember { mutableStateOf(false) }
@@ -238,6 +241,8 @@ fun MealListScreen(
                     items(filteredMeals) { meal ->
                         MealItem(
                             meal = meal, 
+                            expanded = expandedMeals.contains(meal.id),
+                            onToggleExpand = { settingsRepository.toggleMealExpansion(meal.id) },
                             onDelete = { mealRepository.deleteMeal(meal.id) },
                             onClick = { navController.navigate("editMeal/${meal.id}") }
                         )
@@ -250,9 +255,13 @@ fun MealListScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MealItem(meal: Meal, onDelete: () -> Unit, onClick: () -> Unit) {
-    var expanded by remember { mutableStateOf(false) }
-
+fun MealItem(
+    meal: Meal, 
+    expanded: Boolean,
+    onToggleExpand: () -> Unit,
+    onDelete: () -> Unit, 
+    onClick: () -> Unit
+) {
     Card(
         modifier = Modifier
             .padding(horizontal = 8.dp, vertical = 2.dp)
@@ -272,7 +281,7 @@ fun MealItem(meal: Meal, onDelete: () -> Unit, onClick: () -> Unit) {
                         )
                     }
                     IconButton(
-                        onClick = { expanded = !expanded },
+                        onClick = onToggleExpand,
                         modifier = Modifier.size(32.dp)
                     ) {
                         Icon(

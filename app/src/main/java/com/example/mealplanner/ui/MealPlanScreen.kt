@@ -29,6 +29,7 @@ import com.example.mealplanner.data.GroceryRepository
 import com.example.mealplanner.data.MealPlan
 import com.example.mealplanner.data.MealPlanRepository
 import com.example.mealplanner.data.MealRepository
+import com.example.mealplanner.data.SettingsRepository
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -37,10 +38,12 @@ fun MealPlanScreen(
     mealPlanRepository: MealPlanRepository,
     mealRepository: MealRepository,
     groceryRepository: GroceryRepository,
+    settingsRepository: SettingsRepository,
     onOpenDrawer: () -> Unit
 ) {
     val mealPlans by mealPlanRepository.mealPlans.collectAsState()
     val meals by mealRepository.meals.collectAsState()
+    val expandedMealPlans by settingsRepository.expandedMealPlans.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
 
     val filteredMealPlans = remember(mealPlans, searchQuery, meals) {
@@ -155,9 +158,12 @@ fun MealPlanScreen(
             } else {
                 LazyColumn(modifier = Modifier.fillMaxSize()) {
                     items(filteredMealPlans) { mealPlan ->
+                        val isExpanded = expandedMealPlans.contains(mealPlan.day)
                         MealPlanItem(
                             mealPlan = mealPlan,
                             meals = meals,
+                            expanded = isExpanded,
+                            onToggleExpand = { settingsRepository.toggleMealPlanExpansion(mealPlan.day) },
                             onDelete = { mealPlanRepository.deleteMealPlan(mealPlan.day) },
                             onClick = { navController.navigate("editMealPlan/${mealPlan.day}") }
                         )
@@ -173,11 +179,11 @@ fun MealPlanScreen(
 fun MealPlanItem(
     mealPlan: MealPlan, 
     meals: List<com.example.mealplanner.data.Meal>, 
+    expanded: Boolean,
+    onToggleExpand: () -> Unit,
     onDelete: () -> Unit,
     onClick: () -> Unit
 ) {
-    var expanded by remember { mutableStateOf(true) }
-
     Card(
         modifier = Modifier
             .padding(horizontal = 8.dp, vertical = 2.dp)
@@ -197,7 +203,7 @@ fun MealPlanItem(
                         )
                     }
                     IconButton(
-                        onClick = { expanded = !expanded },
+                        onClick = onToggleExpand,
                         modifier = Modifier.size(32.dp)
                     ) {
                         Icon(

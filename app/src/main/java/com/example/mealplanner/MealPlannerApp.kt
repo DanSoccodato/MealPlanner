@@ -42,6 +42,7 @@ fun MealPlannerApp() {
     val groceryRepository = remember { GroceryRepository(database.groceryDao()) }
     val ingredientRepository = remember { IngredientRepository(database.ingredientDao()) }
     val sectionOrderRepository = remember { SectionOrderRepository(database.sectionOrderDao()) }
+    val settingsRepository = remember { SettingsRepository(context) }
 
     val navController = rememberNavController()
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
@@ -145,7 +146,7 @@ fun MealPlannerApp() {
                 modifier = Modifier.padding(innerPadding)
             ) {
                 composable(Screen.MealList.route) {
-                    MealListScreen(navController, mealRepository, ingredientRepository, onOpenDrawer)
+                    MealListScreen(navController, mealRepository, ingredientRepository, settingsRepository, onOpenDrawer)
                 }
                 composable("addMeal") {
                     AddMealScreen(navController, mealRepository, ingredientRepository)
@@ -158,7 +159,7 @@ fun MealPlannerApp() {
                     AddMealScreen(navController, mealRepository, ingredientRepository, mealId)
                 }
                 composable(Screen.MealPlan.route) {
-                    MealPlanScreen(navController, mealPlanRepository, mealRepository, groceryRepository, onOpenDrawer)
+                    MealPlanScreen(navController, mealPlanRepository, mealRepository, groceryRepository, settingsRepository, onOpenDrawer)
                 }
                 composable("addMealPlan") {
                     AddMealPlanScreen(navController, mealPlanRepository, mealRepository)
@@ -171,7 +172,7 @@ fun MealPlannerApp() {
                     AddMealPlanScreen(navController, mealPlanRepository, mealRepository, day)
                 }
                 composable(Screen.GroceryList.route) {
-                    GroceryListScreen(navController, mealPlanRepository, mealRepository, groceryRepository, ingredientRepository, sectionOrderRepository, onOpenDrawer)
+                    GroceryListScreen(navController, mealPlanRepository, mealRepository, groceryRepository, ingredientRepository, sectionOrderRepository, settingsRepository, onOpenDrawer)
                 }
                 composable(Screen.IngredientList.route) {
                     IngredientListScreen(ingredientRepository, onOpenDrawer)

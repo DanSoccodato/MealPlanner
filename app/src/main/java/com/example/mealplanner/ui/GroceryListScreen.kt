@@ -11,6 +11,10 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -29,6 +33,7 @@ import com.example.mealplanner.data.IngredientRepository
 import com.example.mealplanner.data.MealPlanRepository
 import com.example.mealplanner.data.MealRepository
 import com.example.mealplanner.data.SectionOrderRepository
+import com.example.mealplanner.data.SettingsRepository
 import org.burnoutcrew.reorderable.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -40,6 +45,7 @@ fun GroceryListScreen(
     groceryRepository: GroceryRepository,
     ingredientRepository: IngredientRepository,
     sectionOrderRepository: SectionOrderRepository,
+    settingsRepository: SettingsRepository,
     onOpenDrawer: () -> Unit
 ) {
     val mealPlans by mealPlanRepository.mealPlans.collectAsState()
@@ -47,6 +53,7 @@ fun GroceryListScreen(
     val groceryItemsState by groceryRepository.items.collectAsState()
     val allIngredients by ingredientRepository.ingredients.collectAsState()
     val sectionOrders by sectionOrderRepository.sectionOrders.collectAsState()
+    val showSections by settingsRepository.showSections.collectAsState()
 
     // 1. Sync meal ingredients with database to ensure they have positions
     LaunchedEffect(mealPlans, meals) {
@@ -117,8 +124,44 @@ fun GroceryListScreen(
                     }
                 },
                 actions = {
-                    TextButton(onClick = { groceryRepository.reset() }) {
-                        Text("Reset", fontSize = 14.sp)
+                    var showMenu by remember { mutableStateOf(false) }
+                    Box {
+                        IconButton(onClick = { showMenu = !showMenu }) {
+                            Icon(Icons.Default.MoreVert, contentDescription = "More options")
+                        }
+                        DropdownMenu(
+                            expanded = showMenu,
+                            onDismissRequest = { showMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text(if (showSections) "Hide Sections" else "Show Sections") },
+                                leadingIcon = {
+                                    Icon(
+                                        if (showSections) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                },
+                                onClick = {
+                                    settingsRepository.setShowSections(!showSections)
+                                    showMenu = false
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Reset List") },
+                                leadingIcon = {
+                                    Icon(
+                                        Icons.Default.Refresh, 
+                                        contentDescription = null,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                },
+                                onClick = {
+                                    groceryRepository.reset()
+                                    showMenu = false
+                                }
+                            )
+                        }
                     }
                 }
             )
@@ -202,7 +245,7 @@ fun GroceryListScreen(
                             
                             GroceryItem(
                                 item = item,
-                                section = section,
+                                section = if (showSections) section else null,
                                 isBought = isBought,
                                 elevation = elevation.value,
                                 onToggleBought = { groceryRepository.toggleBought(item) },
