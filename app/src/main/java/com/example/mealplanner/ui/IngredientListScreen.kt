@@ -34,6 +34,10 @@ fun IngredientListScreen(
     val ingredients by ingredientRepository.ingredients.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
 
+    val allSections = remember(ingredients) {
+        ingredients.map { it.section }.distinct().sorted()
+    }
+
     val filteredIngredients = remember(ingredients, searchQuery) {
         val list = if (searchQuery.isEmpty()) {
             ingredients
@@ -134,6 +138,7 @@ fun IngredientListScreen(
                     items(filteredIngredients, key = { it.id }) { ingredient ->
                         IngredientItem(
                             ingredient = ingredient,
+                            allSections = allSections,
                             onUpdate = { updatedIng -> ingredientRepository.updateIngredient(updatedIng) },
                             onDelete = { ingredientRepository.deleteIngredient(ingredient) }
                         )
@@ -148,6 +153,7 @@ fun IngredientListScreen(
 @Composable
 fun IngredientItem(
     ingredient: Ingredient,
+    allSections: List<String>,
     onUpdate: (Ingredient) -> Unit,
     onDelete: () -> Unit
 ) {
@@ -185,6 +191,25 @@ fun IngredientItem(
                     onValueChange = { newSection -> onUpdate(ingredient.copy(section = newSection)) },
                     placeholder = "Section (e.g., Produce, Dairy)"
                 )
+                
+                // Section Suggestions
+                if (ingredient.section.isNotBlank()) {
+                    val suggestions = allSections.filter {
+                        it.contains(ingredient.section, ignoreCase = true) && !it.equals(ingredient.section, ignoreCase = true)
+                    }.take(3)
+                    
+                    if (suggestions.isNotEmpty()) {
+                        Row(modifier = Modifier.padding(top = 4.dp)) {
+                            suggestions.forEach { suggestion ->
+                                SuggestionChip(
+                                    onClick = { onUpdate(ingredient.copy(section = suggestion)) },
+                                    label = { Text(suggestion, fontSize = 12.sp) },
+                                    modifier = Modifier.padding(end = 4.dp)
+                                )
+                            }
+                        }
+                    }
+                }
             }
         }
     }

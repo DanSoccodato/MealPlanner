@@ -44,6 +44,9 @@ fun AddMealScreen(
     }
     
     val allIngredients by ingredientRepository.ingredients.collectAsState()
+    val allSections = remember(allIngredients) {
+        allIngredients.map { it.section }.distinct().sorted()
+    }
     
     var showSectionDialog by remember { mutableStateOf(false) }
     var ingredientToSetSection by remember { mutableStateOf<String?>(null) }
@@ -205,6 +208,26 @@ fun AddMealScreen(
                         onValueChange = { newSectionValue = it },
                         placeholder = "Section (e.g., Produce, Dairy)"
                     )
+                    
+                    // Section Suggestions
+                    if (newSectionValue.isNotBlank()) {
+                        val sectionSuggestions = allSections.filter {
+                            it.contains(newSectionValue, ignoreCase = true) && !it.equals(newSectionValue, ignoreCase = true)
+                        }.take(3)
+                        
+                        if (sectionSuggestions.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Row {
+                                sectionSuggestions.forEach { suggestion ->
+                                    SuggestionChip(
+                                        onClick = { newSectionValue = suggestion },
+                                        label = { Text(suggestion, fontSize = 12.sp) },
+                                        modifier = Modifier.padding(end = 4.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             },
             confirmButton = {
