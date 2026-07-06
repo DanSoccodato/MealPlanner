@@ -16,7 +16,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -196,10 +198,27 @@ private fun IngredientListCompactTextField(
     placeholder: String,
     modifier: Modifier = Modifier
 ) {
+    // Maintain internal state for the TextFieldValue to handle cursor position correctly
+    var textFieldValueState by remember { 
+        mutableStateOf(TextFieldValue(text = value, selection = TextRange(value.length))) 
+    }
+
+    // Synchronize local state with external changes
+    LaunchedEffect(value) {
+        if (value != textFieldValueState.text) {
+            textFieldValueState = textFieldValueState.copy(text = value)
+        }
+    }
+
     val interactionSource = remember { MutableInteractionSource() }
     BasicTextField(
-        value = value,
-        onValueChange = onValueChange,
+        value = textFieldValueState,
+        onValueChange = { newValue ->
+            textFieldValueState = newValue
+            if (newValue.text != value) {
+                onValueChange(newValue.text)
+            }
+        },
         modifier = modifier
             .fillMaxWidth()
             .height(36.dp),
@@ -212,7 +231,7 @@ private fun IngredientListCompactTextField(
         cursorBrush = SolidColor(MaterialTheme.colorScheme.primary)
     ) { innerTextField ->
         OutlinedTextFieldDefaults.DecorationBox(
-            value = value,
+            value = textFieldValueState.text,
             innerTextField = innerTextField,
             enabled = true,
             singleLine = true,
