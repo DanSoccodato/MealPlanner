@@ -29,29 +29,13 @@ class GroceryRepository(private val groceryDao: GroceryDao) {
         }
     }
 
-    fun syncMealIngredients(mealIngredients: List<String>) {
-        CoroutineScope(Dispatchers.IO).launch {
-            val currentItems = _items.value
-            var maxPos = currentItems.maxOfOrNull { it.position } ?: 0
-            
-            val toInsert = mealIngredients.filter { name -> 
-                currentItems.none { it.name == name } 
-            }.map { name ->
-                GroceryItem(name, isExtra = false, isBought = false, isRemoved = false, position = ++maxPos)
-            }
-            
-            if (toInsert.isNotEmpty()) {
-                groceryDao.insertItems(toInsert)
-            }
-        }
-    }
-
     fun forceSync(mealIngredients: List<String>) {
         CoroutineScope(Dispatchers.IO).launch {
             val currentItems = _items.value
             val updatedItems = mutableListOf<GroceryItem>()
             var maxPos = currentItems.maxOfOrNull { it.position } ?: 0
 
+            // 1. Add or un-remove items that are in the meal plans
             mealIngredients.forEach { name ->
                 val existing = currentItems.find { it.name == name }
                 if (existing != null) {
@@ -62,6 +46,13 @@ class GroceryRepository(private val groceryDao: GroceryDao) {
                 } else {
                     // Add new
                     updatedItems.add(GroceryItem(name, isExtra = false, isBought = false, isRemoved = false, position = ++maxPos))
+                }
+            }
+
+            // 2. Remove items that are no longer in the meal plans (unless they were manually added)
+            currentItems.forEach { item ->
+                if (!item.isExtra && !item.isRemoved && item.name !in mealIngredients) {
+                    updatedItems.add(item.copy(isRemoved = true))
                 }
             }
             

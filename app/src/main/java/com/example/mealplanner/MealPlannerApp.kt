@@ -172,7 +172,7 @@ fun MealPlannerApp() {
                     AddMealPlanScreen(navController, mealPlanRepository, mealRepository, day)
                 }
                 composable(Screen.GroceryList.route) {
-                    GroceryListScreen(navController, mealPlanRepository, mealRepository, groceryRepository, ingredientRepository, sectionOrderRepository, settingsRepository, onOpenDrawer)
+                    GroceryListScreen(navController, groceryRepository, ingredientRepository, sectionOrderRepository, settingsRepository, onOpenDrawer)
                 }
                 composable(Screen.IngredientList.route) {
                     IngredientListScreen(ingredientRepository, onOpenDrawer)

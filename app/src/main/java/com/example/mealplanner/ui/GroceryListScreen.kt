@@ -30,8 +30,6 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.mealplanner.data.GroceryRepository
 import com.example.mealplanner.data.IngredientRepository
-import com.example.mealplanner.data.MealPlanRepository
-import com.example.mealplanner.data.MealRepository
 import com.example.mealplanner.data.SectionOrderRepository
 import com.example.mealplanner.data.SettingsRepository
 import org.burnoutcrew.reorderable.*
@@ -40,48 +38,24 @@ import org.burnoutcrew.reorderable.*
 @Composable
 fun GroceryListScreen(
     navController: NavController,
-    mealPlanRepository: MealPlanRepository,
-    mealRepository: MealRepository,
     groceryRepository: GroceryRepository,
     ingredientRepository: IngredientRepository,
     sectionOrderRepository: SectionOrderRepository,
     settingsRepository: SettingsRepository,
     onOpenDrawer: () -> Unit
 ) {
-    val mealPlans by mealPlanRepository.mealPlans.collectAsState()
-    val meals by mealRepository.meals.collectAsState()
     val groceryItemsState by groceryRepository.items.collectAsState()
     val allIngredients by ingredientRepository.ingredients.collectAsState()
     val sectionOrders by sectionOrderRepository.sectionOrders.collectAsState()
     val showSections by settingsRepository.showSections.collectAsState()
 
-    // 1. Sync meal ingredients with database to ensure they have positions
-    LaunchedEffect(mealPlans, meals) {
-        val ingredients = mutableListOf<String>()
-        mealPlans.forEach { mealPlan ->
-            mealPlan.mealIds.forEach { mealId ->
-                val meal = meals.find { it.id == mealId }
-                meal?.let { ingredients.addAll(it.ingredients) }
-            }
-        }
-        groceryRepository.syncMealIngredients(ingredients.distinct())
-    }
-
-    // 2. Derive the list from database state
+    // 1. Derive the list from database state
+    // The list is only updated when the user manually adds items or presses "Sync" in MealPlanScreen.
     val dbOrderedItems by remember {
         derivedStateOf {
-            val ingredientsInPlans = mutableListOf<String>()
-            mealPlans.forEach { mealPlan ->
-                mealPlan.mealIds.forEach { mealId ->
-                    val meal = meals.find { it.id == mealId }
-                    meal?.let { ingredientsInPlans.addAll(it.ingredients) }
-                }
-            }
-            
             val sectionMap = sectionOrders.associate { it.section to it.position }
             
             groceryItemsState
-                .filter { it.name in ingredientsInPlans || it.isExtra }
                 .filter { !it.isRemoved }
                 .sortedWith(compareBy<com.example.mealplanner.data.GroceryItem> { 
                     val ingredient = allIngredients.find { ing -> ing.name.equals(it.name, ignoreCase = true) }
@@ -91,7 +65,7 @@ fun GroceryListScreen(
         }
     }
 
-    // 3. Maintain a local mutable state for smooth dragging
+    // 2. Maintain a local mutable state for smooth dragging
     val localOrderedItems = remember { mutableStateListOf<String>() }
     
     // Sync local state when database items change (initial load or new items)
